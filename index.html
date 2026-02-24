@@ -1,0 +1,4250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Retro Arcade - Play Pong, Snake, Breakout. Load your own ROMs for NES, SNES, GBA and more. Free browser-based retro gaming.">
+  <meta name="theme-color" content="#6366f1">
+  <title>Retro Arcade</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%230d0d12' width='32' height='32' rx='4'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%236366f1' stroke-width='2'/%3E%3Ccircle cx='16' cy='12' r='2' fill='%236366f1'/%3E%3Cpath d='M16 18v4' stroke='%236366f1' stroke-width='1.5'/%3E%3C/svg%3E" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/jsnes@1.2.1/dist/jsnes.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0d0d12;
+      --bg-secondary: #14141c;
+      --bg-tertiary: #1a1a24;
+      --bg-card: #12121a;
+      --accent-primary: #6366f1;
+      --accent-secondary: #8b5cf6;
+      --accent-tertiary: #22d3ee;
+      --accent-cyan: #10b981;
+      --accent-yellow: #f59e0b;
+      --accent-orange: #f97316;
+      --rainbow-1: #ef4444;
+      --rainbow-2: #f97316;
+      --rainbow-3: #f59e0b;
+      --rainbow-4: #10b981;
+      --rainbow-5: #22d3ee;
+      --rainbow-6: #6366f1;
+      --rainbow-7: #8b5cf6;
+      --rainbow-8: #ec4899;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
+      --border-subtle: #2d2d3a;
+      --glass-bg: rgba(13, 13, 18, 0.85);
+      --glow-primary: rgba(99, 102, 241, 0.4);
+      --glow-secondary: rgba(139, 92, 246, 0.4);
+      --sidebar-width: 220px;
+      --breakpoint-mobile: 768px;
+    }
+
+    @keyframes rainbowShift {
+      0% { filter: hue-rotate(0deg); }
+      100% { filter: hue-rotate(360deg); }
+    }
+
+    @keyframes glitch {
+      0%, 100% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+    }
+
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100%); }
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      92% { opacity: 1; }
+      93% { opacity: 0.8; }
+      94% { opacity: 1; }
+      96% { opacity: 0.9; }
+      97% { opacity: 1; }
+    }
+
+    @keyframes pixelBlink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    @keyframes bootUp {
+      0% { opacity: 0; transform: scale(0.8); filter: blur(10px); }
+      50% { opacity: 1; transform: scale(1.02); filter: blur(2px); }
+      100% { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+
+    @keyframes rgbSplit {
+      0%, 100% { text-shadow: -2px 0 #ff0000, 2px 0 #00ffff; }
+      50% { text-shadow: 2px 0 #ff0000, -2px 0 #00ffff; }
+    }
+
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      padding: 8px 16px;
+      background: var(--accent-primary);
+      color: white;
+      font-weight: 600;
+      z-index: 10000;
+      transition: top 0.2s;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+
+    body {
+      font-family: 'Exo 2', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      letter-spacing: 0.02em;
+    }
+
+    .app-container {
+      display: flex;
+      height: 100vh;
+      background: 
+        radial-gradient(ellipse at 0% 0%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 100% 100%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+        var(--bg-primary);
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-scrollable {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sidebar-bottom {
+      padding: 12px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-primary);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text-primary);
+      text-align: center;
+      padding: 12px 0;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      position: relative;
+    }
+
+    .logo span {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary), var(--accent-tertiary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-primary), var(--accent-secondary), transparent);
+    }
+
+    .logo::before {
+      content: '▶ ◀';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      font-size: 8px;
+      color: var(--accent-tertiary);
+      opacity: 0.7;
+    }
+
+    .search-box {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      padding: 10px 12px;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+      border-radius: 6px;
+    }
+
+    .search-box:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .search-box:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    .search-box::placeholder {
+      color: var(--text-muted);
+    }
+
+    .section-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-top: 8px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border-subtle), transparent);
+    }
+
+    .game-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sidebar-library {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .sidebar-rom-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .sidebar-rom-item:hover {
+      border-color: var(--rainbow-5);
+      background: var(--bg-tertiary);
+    }
+    .sidebar-rom-item .rom-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .game-category-select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      font-family: 'Exo 2', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .game-category-select:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .game-category-select:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    .game-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      image-rendering: pixelated;
+    }
+
+    .game-card:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent-primary);
+      transform: translateX(2px);
+    }
+
+    .game-card.active {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .game-card:focus {
+      outline: none;
+      border-color: var(--accent-secondary);
+    }
+
+    .game-card:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    .game-icon {
+      font-size: 20px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .game-info h3 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-primary);
+      letter-spacing: 0.03em;
+      line-height: 1.3;
+    }
+
+    .game-info p {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .main-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 16px;
+      overflow: hidden;
+      min-height: 0;
+      height: 100vh;
+      background: 
+        radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
+        var(--bg-primary);
+    }
+
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .game-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: var(--text-primary);
+      letter-spacing: 0.03em;
+    }
+
+    .score-display {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--accent-tertiary);
+      padding: 6px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--accent-tertiary);
+      border-radius: 6px;
+      letter-spacing: 0.1em;
+    }
+
+    .score-display span {
+      color: var(--text-primary);
+      margin-left: 6px;
+    }
+
+    .game-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .game-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, 0.15) 0px,
+          rgba(0, 0, 0, 0.15) 1px,
+          transparent 1px,
+          transparent 2px
+        );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .game-container::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 100%;
+      background: linear-gradient(
+        transparent 50%,
+        rgba(0, 0, 0, 0.1) 50%
+      );
+      background-size: 100% 4px;
+      pointer-events: none;
+      z-index: 101;
+      opacity: 0.3;
+    }
+
+    .scanline-effect {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      animation: scanline 8s linear infinite;
+      pointer-events: none;
+      z-index: 102;
+    }
+
+    .game-frame {
+      position: relative;
+      overflow: hidden;
+      box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 0 40px rgba(99, 102, 241, 0.1);
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      border-radius: 4px;
+    }
+
+    #gameCanvas {
+      display: block;
+      background: #000;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .game-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        rgba(0, 0, 0, 0.2) 90%,
+        rgba(0, 0, 0, 0.4) 100%
+      ),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, transparent 30%);
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    #gameCanvas {
+      display: block;
+      background: #000;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      flex-shrink: 0;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .control-btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 8px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .control-btn:hover {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    .control-btn.active {
+      background: var(--accent-primary);
+      color: white;
+      border-color: var(--accent-primary);
+    }
+
+    .keyboard-hint {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-left: auto;
+    }
+
+    .press-start {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 60;
+      display: none;
+    }
+
+    .press-start.show {
+      display: block;
+    }
+
+    .press-start-text {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 28px;
+      color: #fff;
+      text-shadow: 
+        0 0 10px var(--accent-primary),
+        0 0 20px var(--accent-primary),
+        0 0 40px var(--accent-primary);
+      animation: pixelBlink 1s infinite;
+      letter-spacing: 0.1em;
+    }
+
+    .coin-slot {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--rainbow-4);
+      margin-top: 20px;
+      letter-spacing: 0.2em;
+      animation: rgbSplit 2s infinite;
+    }
+
+    .game-loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 30;
+    }
+
+    .game-loading.show {
+      display: flex;
+      animation: bootUp 0.5s ease;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--bg-tertiary);
+      border-top-color: var(--accent-primary);
+      border-right-color: var(--rainbow-4);
+      border-bottom-color: var(--rainbow-5);
+      border-left-color: var(--rainbow-7);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      margin-top: 12px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      color: var(--text-secondary);
+      animation: pixelBlink 0.5s infinite;
+    }
+
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 20;
+      display: none;
+      background: rgba(0, 0, 0, 0.95);
+      padding: 30px 50px;
+      border: 2px solid var(--accent-primary);
+      box-shadow: 
+        0 0 30px rgba(255, 0, 128, 0.5),
+        inset 0 0 30px rgba(255, 0, 128, 0.1);
+    }
+
+    .game-over.show {
+      display: block;
+      animation: bootUp 0.3s ease;
+    }
+
+    .game-over h2 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      background: linear-gradient(90deg, var(--rainbow-1), var(--rainbow-7));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      animation: rgbSplit 1s infinite;
+    }
+
+    .game-over p {
+      font-size: 16px;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .restart-btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 10px 24px;
+      background: transparent;
+      border: 2px solid var(--rainbow-4);
+      color: var(--rainbow-4);
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .restart-btn:hover {
+      background: var(--rainbow-4);
+      color: #000;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+    }
+
+    .new-high-score {
+      display: inline-block;
+      margin-bottom: 16px;
+      padding: 8px 20px;
+      background: linear-gradient(90deg, var(--rainbow-1), var(--rainbow-3), var(--rainbow-4), var(--rainbow-5), var(--rainbow-7));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      animation: glitch 0.2s infinite, rainbowShift 1s linear infinite;
+      letter-spacing: 0.1em;
+    }
+
+    .control-btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .control-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent-primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .control-btn.active {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 15px var(--glow-primary);
+    }
+
+    .keyboard-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-left: auto;
+      font-weight: 400;
+    }
+
+    .touch-controls {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      gap: 8px;
+      z-index: 100;
+      padding: 12px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .touch-btn {
+      width: 48px;
+      height: 48px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .touch-btn:active {
+      background: var(--accent-primary);
+      color: white;
+      transform: scale(0.92);
+    }
+
+    .touch-dpad {
+      display: flex;
+      gap: 4px;
+    }
+
+    .touch-dpad .touch-btn {
+      width: 42px;
+      height: 42px;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1000;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-primary);
+      padding: 8px 12px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: -300px;
+        top: 0;
+        bottom: 0;
+        z-index: 999;
+        transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(20px);
+      }
+
+      .sidebar.open {
+        left: 0;
+      }
+
+      .mobile-menu-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .logo {
+        font-size: 18px;
+        padding: 12px 0;
+      }
+
+      .game-title {
+        font-size: 20px;
+      }
+
+      .score-display {
+        font-size: 14px;
+        padding: 6px 14px;
+      }
+
+      .touch-controls {
+        display: flex;
+      }
+
+      .keyboard-hint {
+        display: none;
+      }
+
+      .main-area {
+        padding: 70px 16px 100px;
+      }
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 998;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .overlay.show {
+      display: block;
+      opacity: 1;
+    }
+
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 20;
+      display: none;
+    }
+
+    .game-over.show {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
+    .game-over h2 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--accent-tertiary);
+      text-shadow: 0 0 30px rgba(255, 92, 141, 0.5);
+      margin-bottom: 16px;
+      letter-spacing: 0.1em;
+    }
+
+    .game-over p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .restart-btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 14px 32px;
+      background: transparent;
+      border: 2px solid var(--accent-primary);
+      color: var(--accent-primary);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    .restart-btn:hover {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+      box-shadow: 0 0 30px var(--glow-primary);
+      transform: translateY(-2px);
+    }
+
+    .rom-section {
+      padding-top: 12px;
+    }
+
+    .rom-upload {
+      display: none;
+    }
+
+    .rom-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px;
+      background: var(--bg-tertiary);
+      border: 1px dashed var(--border-subtle);
+      cursor: pointer;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+      border-radius: 6px;
+    }
+
+    .rom-label:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    .library-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .library-empty {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 12px;
+      font-style: italic;
+    }
+
+    .library-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .library-item:hover {
+      border-color: var(--accent-primary);
+      background: var(--bg-tertiary);
+    }
+
+    .library-item.active {
+      border-color: var(--accent-secondary);
+      background: rgba(139, 92, 246, 0.1);
+    }
+
+    .library-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--rainbow-5);
+      flex-shrink: 0;
+    }
+
+    .library-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .library-name {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .library-system {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .library-remove {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 14px;
+      height: 14px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: var(--rainbow-1);
+      color: #fff;
+      font-size: 10px;
+      cursor: pointer;
+      opacity: 0.8;
+    }
+
+    .library-item:hover .library-remove {
+      display: flex;
+    }
+
+    .library-remove:hover {
+      opacity: 1;
+    }
+
+    .free-games-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .free-game-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .free-game-link:hover {
+      border-color: var(--accent-secondary);
+      background: var(--bg-tertiary);
+      transform: translateX(2px);
+    }
+
+    .free-game-icon {
+      font-size: 16px;
+    }
+
+    .free-game-name {
+      flex: 1;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .free-game-arrow {
+      color: var(--rainbow-5);
+      font-size: 12px;
+    }
+
+    .system-select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      font-family: 'Exo 2', sans-serif;
+      font-size: 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    .system-select:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .system-select:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    .system-select option {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .rom-info {
+      margin-top: 6px;
+      padding: 6px;
+      background: var(--bg-primary);
+      border-radius: 0;
+      border: 1px solid var(--rainbow-4);
+      font-size: 10px;
+      color: var(--rainbow-4);
+      display: none;
+    }
+
+    .emulator-container {
+      width: 100%;
+      height: 100%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .emulator-container.active {
+      display: flex;
+    }
+
+    .emulator-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .emulator-container #emulator {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .emulator-container #emulator iframe {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .system-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .system-card {
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .system-card:hover {
+      border-color: var(--rainbow-5);
+      background: var(--bg-primary);
+    }
+    .system-card-icon {
+      width: 48px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .system-card-icon svg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .system-card-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    .system-card-count {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .library-by-system {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .library-system-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 12px;
+    }
+    .library-system-header {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--rainbow-5);
+      margin-bottom: 10px;
+    }
+    .library-system-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .library-system-roms {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .library-rom-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: border-color 0.2s;
+    }
+    .library-rom-item:hover {
+      border-color: var(--rainbow-5);
+    }
+    .library-rom-item .remove-btn {
+      margin-left: 4px;
+      padding: 2px 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .library-rom-item .remove-btn:hover {
+      color: var(--rainbow-1);
+      background: rgba(255,0,0,0.1);
+    }
+
+    .controls-guide {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+      display: none;
+      border-radius: 0;
+    }
+
+    .controls-guide.show {
+      display: block;
+    }
+
+    .controls-guide h4 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 9px;
+      color: var(--rainbow-5);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 6px;
+    }
+
+    .control-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--rainbow-5);
+      border-radius: 0;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--rainbow-5);
+    }
+
+    .control-item span:last-child {
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    .settings-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2000;
+    }
+
+    .settings-modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .settings-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+    }
+
+    .settings-panel {
+      position: relative;
+      width: 90%;
+      max-width: 400px;
+      max-height: 80vh;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-tertiary);
+    }
+
+    .settings-header h2 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .settings-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .settings-close:hover {
+      color: var(--accent-primary);
+    }
+
+    .settings-content {
+      padding: 20px;
+      overflow-y: auto;
+      max-height: calc(80vh - 60px);
+    }
+
+    .settings-section {
+      margin-bottom: 20px;
+    }
+
+    .settings-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .settings-section h3 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 10px;
+      color: var(--rainbow-5);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 10px;
+    }
+
+    .settings-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+    }
+
+    .settings-toggle span:first-child {
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+
+    .settings-toggle input {
+      display: none;
+    }
+
+    .toggle-slider {
+      width: 36px;
+      height: 20px;
+      background: var(--bg-tertiary);
+      position: relative;
+      transition: background 0.1s;
+    }
+
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: var(--text-secondary);
+      transition: all 0.1s;
+    }
+
+    .settings-toggle input:checked + .toggle-slider {
+      background: var(--rainbow-5);
+    }
+
+    .settings-toggle input:checked + .toggle-slider::after {
+      left: 18px;
+      background: var(--bg-primary);
+    }
+
+    .high-scores-list {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      padding: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .high-score-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 10px;
+    }
+
+    .high-score-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .high-score-item .game-name {
+      font-size: 11px;
+      color: var(--text-primary);
+    }
+
+    .high-score-item .score {
+      font-size: 11px;
+      color: var(--rainbow-4);
+      font-weight: 600;
+    }
+
+    .gamepad-notification {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      background: var(--bg-card);
+      border: 2px solid var(--rainbow-4);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--rainbow-4);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 3000;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+      animation: slideInRight 0.3s ease;
+    }
+
+    .gamepad-notification.gamepad-disconnected {
+      border-color: var(--rainbow-1);
+      color: var(--rainbow-1);
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+    }
+
+    .gamepad-notification.fade-out {
+      animation: fadeOut 0.3s ease forwards;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      to {
+        opacity: 0;
+        transform: translateX(50px);
+      }
+    }
+
+    .gamepad-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(0, 255, 0, 0.1);
+      border: 1px solid var(--rainbow-4);
+      font-size: 10px;
+      color: var(--rainbow-4);
+      margin-left: 8px;
+    }
+
+    .gamepad-indicator.active {
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .gamepad-settings {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      padding: 10px;
+    }
+
+    .gamepad-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .gamepad-status.connected {
+      border-color: var(--rainbow-4);
+      background: rgba(0, 255, 0, 0.05);
+    }
+
+    .gamepad-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .gamepad-status.connected .gamepad-status-dot {
+      background: var(--rainbow-4);
+      box-shadow: 0 0 8px var(--rainbow-4);
+      animation: pulse 1s infinite;
+    }
+
+    .gamepad-status-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .gamepad-status.connected .gamepad-status-text {
+      color: var(--rainbow-4);
+    }
+
+    .gamepad-controls-info {
+      line-height: 1.6;
+    }
+
+    .resolution-select {
+      padding: 6px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .resolution-select:focus {
+      border-color: var(--rainbow-5);
+    }
+
+    .resolution-select:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    .resolution-select option {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .dialog-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .dialog-modal.show {
+      display: flex;
+    }
+
+    .dialog-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+    }
+
+    .dialog-panel {
+      position: relative;
+      width: 100%;
+      max-width: 360px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .dialog-message {
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      white-space: pre-wrap;
+    }
+
+    .dialog-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .dialog-btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .dialog-btn:hover {
+      background: var(--bg-card);
+      border-color: var(--accent-primary);
+    }
+
+    .dialog-btn-primary {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: white;
+    }
+
+    .dialog-btn-primary:hover {
+      background: var(--accent-secondary);
+      border-color: var(--accent-secondary);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .scanline-effect {
+        animation: none;
+      }
+      .press-start-text {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to game</a>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open menu">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Menu
+  </button>
+  
+  <div class="overlay" onclick="toggleSidebar()"></div>
+
+  <div class="dialog-modal" id="dialogModal" role="dialog" aria-modal="true" aria-labelledby="dialogTitle" aria-describedby="dialogMessage">
+    <div class="dialog-backdrop" onclick="closeDialog(false)"></div>
+    <div class="dialog-panel">
+      <h2 class="dialog-title" id="dialogTitle" style="display:none;"></h2>
+      <p class="dialog-message" id="dialogMessage"></p>
+      <div class="dialog-buttons" id="dialogButtons"></div>
+    </div>
+  </div>
+
+  <div class="dialog-modal" id="romDialogModal" role="dialog" aria-modal="true" aria-labelledby="romDialogTitle">
+    <div class="dialog-backdrop" onclick="closeRomDialog()"></div>
+    <div class="dialog-panel" style="min-width:320px">
+      <h2 class="dialog-title" id="romDialogTitle">Import or Run ROM</h2>
+      <div style="margin:16px 0">
+        <label for="romDialogSystem" style="display:block;margin-bottom:6px;font-size:13px">System</label>
+        <select id="romDialogSystem" class="control-btn" style="width:100%;padding:10px">
+          <option value="">-- Select System --</option>
+          <option value="nes">NES</option>
+          <option value="snes">SNES</option>
+          <option value="gb">Game Boy</option>
+          <option value="gbc">Game Boy Color</option>
+          <option value="gba">Game Boy Advance</option>
+          <option value="genesis">Genesis</option>
+          <option value="sms">Master System</option>
+          <option value="n64">N64</option>
+          <option value="psx">PlayStation</option>
+          <option value="pce">PC Engine</option>
+          <option value="ngp">Neo Geo Pocket</option>
+          <option value="ws">WonderSwan</option>
+        </select>
+      </div>
+      <div class="dialog-buttons" style="margin-top:20px">
+        <button class="dialog-btn" onclick="closeRomDialog()">Cancel</button>
+        <button class="dialog-btn" onclick="romDialogImport()">Import ROM</button>
+        <button class="dialog-btn dialog-btn-primary" onclick="romDialogRun()">Run ROM</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-scrollable">
+        <div class="logo">RETRO<span>ARCADE</span></div>
+        <div class="section-title">My Games</div>
+        <div class="game-list" id="gameList"></div>
+        <div class="section-title" style="margin-top:16px">Recent ROMs</div>
+        <div id="sidebarLibrary" class="sidebar-library"></div>
+        <button class="control-btn" style="width:100%;margin-top:12px;justify-content:center;padding:10px;" onclick="showView('emulator')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px">
+            <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="1"/>
+          </svg>
+          Emulator Select
+        </button>
+      </div>
+      <div class="sidebar-bottom">
+        <button class="control-btn" style="width:100%;justify-content:center;padding:10px" onclick="openSettings()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+          </svg>
+          Settings
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-area" id="main-content" tabindex="-1">
+      <div id="homeView" class="main-view" style="display:none">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+          <h1 style="font-family:var(--font-display);font-size:28px;color:var(--rainbow-5);margin-bottom:24px">Select a Game</h1>
+          <div class="game-list" id="homeGameList" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:600px"></div>
+        </div>
+      </div>
+
+      <div id="emulatorView" class="main-view" style="display:flex">
+        <div style="flex:1;display:flex;flex-direction:column;overflow:auto;padding:24px">
+          <button class="control-btn" style="align-self:flex-start;margin-bottom:16px" onclick="showView('home')">← Built-in Games</button>
+          <h1 style="font-family:var(--font-display);font-size:24px;color:var(--rainbow-5);margin-bottom:20px">Emulator Select</h1>
+          <div class="section-title" style="margin-bottom:12px">Systems</div>
+          <div id="systemCardsGrid" class="system-cards-grid"></div>
+          <div class="section-title" style="margin-top:24px;margin-bottom:12px">My Library</div>
+          <div id="libraryBySystem" class="library-by-system"></div>
+        </div>
+        <input type="file" id="romUpload" class="rom-upload" accept=".nes,.smc,.sfc,.gb,.gbc,.gba,.md,.gen,.bin,.n64,.z64,.iso,.bin,.cue,.zip" style="display:none">
+        <select id="systemSelect" style="display:none"></select>
+      </div>
+
+      <div id="playView" class="main-view" style="display:none">
+        <div class="game-header">
+          <h1 class="game-title" id="gameTitle">Select a Game</h1>
+          <div class="score-display">SCORE<span id="scoreValue">0</span></div>
+          <span id="romInfo" style="display:none;font-size:12px;margin-left:12px;color:var(--text-secondary)"></span>
+        </div>
+        <div class="game-container">
+        <div class="scanline-effect"></div>
+        <div class="game-frame" id="crtFrame">
+          <canvas id="gameCanvas" width="640" height="480" role="img" aria-label="Game display"></canvas>
+          <div class="press-start" id="pressStart">
+            <div class="press-start-text">PRESS START</div>
+            <div class="coin-slot">◄ INSERT COIN ►</div>
+          </div>
+          <div class="game-loading" id="gameLoading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading...</div>
+          </div>
+          <div class="game-over" id="gameOver">
+            <h2>GAME OVER</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <div class="new-high-score" id="newHighScore" style="display:none;">NEW HIGH SCORE!</div>
+            <button class="restart-btn" onclick="restartGame()">Play Again</button>
+          </div>
+          <div class="emulator-container" id="emulatorContainer">
+            <div id="emulator"></div>
+          </div>
+        </div>
+      </div>
+        <div class="controls-bar">
+          <button class="control-btn" id="pauseBtn" onclick="togglePause()" aria-label="Start or pause game">
+            <span id="pauseIcon">▶</span> <span id="pauseText">START</span>
+          </button>
+          <button class="control-btn" id="soundBtn" onclick="toggleSound()" aria-label="Toggle sound effects">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+            </svg>
+            <span id="soundText">Sound</span>
+          </button>
+          <button class="control-btn" onclick="toggleFullscreen()" aria-label="Toggle fullscreen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
+            </svg>
+            Fullscreen
+          </button>
+          <button class="control-btn" onclick="exitGameOrEmulator()" aria-label="Exit to menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+            </svg>
+            Exit
+          </button>
+          <select class="resolution-select" id="resolutionSelect" onchange="changeResolution(this.value)" aria-label="Select resolution scale">
+            <option value="auto">Auto Fit</option>
+            <option value="1x">1x (Native)</option>
+            <option value="2x">2x</option>
+            <option value="3x">3x</option>
+            <option value="4x">4x</option>
+          </select>
+          <span class="keyboard-hint" id="keyboardHint">Press SPACE to start</span>
+          <div class="gamepad-indicator" id="gamepadIndicator" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="6" width="20" height="12" rx="2"/>
+              <circle cx="8" cy="12" r="2"/>
+              <circle cx="16" cy="12" r="1"/>
+            </svg>
+            Gamepad
+          </div>
+        </div>
+        <div class="controls-guide" id="controlsGuide"></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="touch-controls" id="touchControls" aria-label="Touch game controls">
+    <div class="touch-dpad" aria-label="Direction pad">
+      <button class="touch-btn" aria-label="Move left" ontouchstart="handleTouch('left', true)" ontouchend="handleTouch('left', false)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="touch-btn" aria-label="Move up" ontouchstart="handleTouch('up', true)" ontouchend="handleTouch('up', false)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+      </button>
+      <button class="touch-btn" aria-label="Move down" ontouchstart="handleTouch('down', true)" ontouchend="handleTouch('down', false)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <button class="touch-btn" aria-label="Move right" ontouchstart="handleTouch('right', true)" ontouchend="handleTouch('right', false)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+    <button class="touch-btn" aria-label="Action button" ontouchstart="handleTouch('action', true)" ontouchend="handleTouch('action', false)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+    </button>
+  </div>
+
+  <div class="settings-modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="settings-backdrop" onclick="closeSettings()"></div>
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h2 id="settingsTitle">Settings</h2>
+        <button class="settings-close" onclick="closeSettings()">×</button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-section">
+          <h3>Audio</h3>
+          <label class="settings-toggle">
+            <span>Sound Effects</span>
+            <input type="checkbox" id="settingsSound" onchange="updateSettings()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-section">
+          <h3>Display</h3>
+          <label class="settings-toggle">
+            <span>Show Control Hints</span>
+            <input type="checkbox" id="settingsHints" checked onchange="updateSettings()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-section">
+          <h3>Gamepad</h3>
+          <div class="gamepad-settings">
+            <div id="gamepadStatus" class="gamepad-status">
+              <span class="gamepad-status-text">No gamepad connected</span>
+            </div>
+            <button class="control-btn" style="width:100%;margin-top:8px;justify-content:center" onclick="scanForGamepads()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                <circle cx="8" cy="12" r="2"/>
+                <circle cx="16" cy="12" r="1"/>
+              </svg>
+              Scan for Gamepads
+            </button>
+            <div class="gamepad-controls-info" style="margin-top:10px;font-size:11px;color:var(--text-secondary)">
+              <div style="margin-bottom:4px"><strong style="color:var(--rainbow-4)">D-Pad/Stick:</strong> Arrow Keys</div>
+              <div style="margin-bottom:4px"><strong style="color:var(--rainbow-4)">A/B/X/Y:</strong> Action / Space</div>
+              <div style="margin-bottom:4px"><strong style="color:var(--rainbow-4)">Start:</strong> Pause</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>High Scores</h3>
+          <div class="high-scores-list" id="highScoresList"></div>
+          <button class="control-btn" style="margin-top:12px" onclick="clearHighScores()">Clear All Scores</button>
+        </div>
+        <div class="settings-section">
+          <h3>About</h3>
+          <p style="color:var(--text-secondary);font-size:13px;">Retro Arcade v1.0<br>Classic games simulator</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const games = [
+      { id: 'pong', name: 'Pong', year: '1972', icon: '🏓', controls: 'Arrow Keys', type: 'builtin' },
+      { id: 'snake', name: 'Snake', year: '1976', icon: '🐍', controls: 'Arrow Keys', type: 'builtin' },
+      { id: 'breakout', name: 'Breakout', year: '1976', icon: '🧱', controls: '← → Move', type: 'builtin' }
+    ];
+
+    let currentGame = null;
+    let currentView = 'emulator';
+    let previousView = 'emulator';
+    let isPaused = true;
+    let soundEnabled = false;
+    let audioCtx = null;
+    let masterGain = null;
+
+    // Custom dialog (replaces alert/confirm)
+    let dialogResolve = null;
+    function showAlert(message) {
+      return new Promise(resolve => {
+        dialogResolve = resolve;
+        const modal = document.getElementById('dialogModal');
+        document.getElementById('dialogMessage').textContent = message;
+        document.getElementById('dialogTitle').style.display = 'none';
+        document.getElementById('dialogButtons').innerHTML = '<button class="dialog-btn dialog-btn-primary" onclick="closeDialog(true)">OK</button>';
+        modal.classList.add('show');
+        modal.querySelector('.dialog-btn-primary')?.focus();
+      });
+    }
+    function showConfirm(message) {
+      return new Promise(resolve => {
+        dialogResolve = resolve;
+        const modal = document.getElementById('dialogModal');
+        document.getElementById('dialogMessage').textContent = message;
+        document.getElementById('dialogTitle').style.display = 'none';
+        document.getElementById('dialogButtons').innerHTML = '<button class="dialog-btn" onclick="closeDialog(false)">Cancel</button><button class="dialog-btn dialog-btn-primary" onclick="closeDialog(true)">OK</button>';
+        modal.classList.add('show');
+        modal.querySelector('.dialog-btn-primary')?.focus();
+      });
+    }
+    function closeDialog(result) {
+      document.getElementById('dialogModal').classList.remove('show');
+      if (dialogResolve) {
+        dialogResolve(result);
+        dialogResolve = null;
+      }
+    }
+
+    // Audio System
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.connect(audioCtx.destination);
+        masterGain.gain.value = 0.3;
+      }
+    }
+
+    function playSound(type) {
+      if (!soundEnabled || !audioCtx) return;
+      
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      const now = audioCtx.currentTime;
+      
+      switch(type) {
+        case 'jump':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          osc.start(now);
+          osc.stop(now + 0.15);
+          break;
+        case 'doubleJump':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.exponentialRampToValueAtTime(900, now + 0.1);
+          osc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+          break;
+        case 'dash':
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(200, now);
+          osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now);
+          osc.stop(now + 0.2);
+          break;
+        case 'coin':
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(988, now);
+          osc.frequency.setValueAtTime(1319, now + 0.08);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          osc.start(now);
+          osc.stop(now + 0.15);
+          break;
+        case 'powerup':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.setValueAtTime(554, now + 0.1);
+          osc.frequency.setValueAtTime(659, now + 0.2);
+          osc.frequency.setValueAtTime(880, now + 0.3);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+          osc.start(now);
+          osc.stop(now + 0.4);
+          break;
+        case 'hit':
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+          break;
+        case 'die':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.exponentialRampToValueAtTime(100, now + 0.4);
+          osc.frequency.exponentialRampToValueAtTime(50, now + 0.6);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+          osc.start(now);
+          osc.stop(now + 0.7);
+          break;
+        case 'shoot':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.exponentialRampToValueAtTime(220, now + 0.1);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+          break;
+        case 'explosion':
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(200, now);
+          osc.frequency.exponentialRampToValueAtTime(20, now + 0.3);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+          break;
+        case 'start':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(262, now);
+          osc.frequency.setValueAtTime(330, now + 0.1);
+          osc.frequency.setValueAtTime(392, now + 0.2);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+          break;
+        case 'pause':
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+          break;
+        case 'land':
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(100, now);
+          osc.frequency.exponentialRampToValueAtTime(50, now + 0.08);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+          break;
+        case 'move':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(150, now);
+          gain.gain.setValueAtTime(0.05, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+          osc.start(now);
+          osc.stop(now + 0.05);
+          break;
+        case 'score':
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.setValueAtTime(800, now + 0.05);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+          break;
+      }
+    }
+
+    function stopGameAudio() {
+      if (masterGain) masterGain.gain.value = 0;
+    }
+
+    function resumeGameAudio() {
+      if (masterGain && soundEnabled) masterGain.gain.value = 0.3;
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      if (soundEnabled) {
+        initAudio();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }
+      document.getElementById('soundBtn').classList.toggle('active', soundEnabled);
+      document.getElementById('soundText').textContent = soundEnabled ? 'On' : 'Off';
+      
+      const settings = getSettings();
+      settings.soundEnabled = soundEnabled;
+      saveSettings(settings);
+    }
+    let gameLoop = null;
+    let score = 0;
+    let highScores = getSavedData().highScores || {};
+    let keys = {};
+    let keyboardKeys = {};  // Track keyboard state separately
+    let touchState = {};
+    let gamepadState = {};
+    let connectedGamepads = {};
+    let gamepadPollInterval = null;
+    let isEmulatorRunning = false;
+    let currentResolution = 'auto';
+    let currentRomBlobUrl = null;
+    let createElementPatchRestore = null;
+
+    const nativeResolutions = {
+      nes: { width: 256, height: 240 },
+      snes: { width: 256, height: 224 },
+      gb: { width: 160, height: 144 },
+      gbc: { width: 160, height: 144 },
+      gba: { width: 240, height: 160 },
+      genesis: { width: 320, height: 224 },
+      sms: { width: 256, height: 192 },
+      n64: { width: 320, height: 240 },
+      psx: { width: 320, height: 240 },
+      pce: { width: 256, height: 242 },
+      ngp: { width: 160, height: 152 },
+      ws: { width: 224, height: 144 },
+      freedoom: { width: 320, height: 200 },
+      builtin: { width: 640, height: 480 }
+    };
+
+    function changeResolution(value) {
+      currentResolution = value;
+      const settings = getSettings();
+      settings.resolution = value;
+      saveSettings(settings);
+      
+      if (isEmulatorRunning) {
+        applyEmulatorResolution();
+      } else if (currentGame) {
+        applyCanvasResolution();
+      }
+    }
+
+    function getResolutionSize(system) {
+      const native = nativeResolutions[system] || nativeResolutions.builtin;
+      
+      if (currentResolution === 'auto') {
+        return null; // Let it auto-fit
+      }
+      
+      const scale = parseInt(currentResolution) || 1;
+      return {
+        width: native.width * scale,
+        height: native.height * scale
+      };
+    }
+
+    function applyEmulatorResolution() {
+      const system = document.getElementById('systemSelect').value || 'builtin';
+      const size = getResolutionSize(system);
+      const container = document.getElementById('emulator');
+      const gameFrame = document.getElementById('crtFrame');
+      
+      if (size) {
+        container.style.width = size.width + 'px';
+        container.style.height = size.height + 'px';
+        container.style.maxWidth = size.width + 'px';
+        container.style.maxHeight = size.height + 'px';
+        gameFrame.style.maxWidth = size.width + 'px';
+        gameFrame.style.maxHeight = size.height + 'px';
+      } else {
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.maxWidth = '100%';
+        container.style.maxHeight = '100%';
+        gameFrame.style.maxWidth = '100%';
+        gameFrame.style.maxHeight = '100%';
+      }
+    }
+
+    function applyCanvasResolution() {
+      const size = getResolutionSize('builtin');
+      const gameFrame = document.getElementById('crtFrame');
+      const canvas = document.getElementById('gameCanvas');
+      
+      if (size) {
+        canvas.width = size.width;
+        canvas.height = size.height;
+        gameFrame.style.maxWidth = size.width + 'px';
+        gameFrame.style.maxHeight = size.height + 'px';
+      } else {
+        canvas.width = 640;
+        canvas.height = 480;
+        gameFrame.style.maxWidth = '100%';
+        gameFrame.style.maxHeight = '100%';
+      }
+    }
+
+    function resetResolution() {
+      const container = document.getElementById('emulator');
+      const gameFrame = document.getElementById('crtFrame');
+      const canvas = document.getElementById('gameCanvas');
+      
+      container.style.width = '100%';
+      container.style.height = '100%';
+      container.style.maxWidth = '100%';
+      container.style.maxHeight = '100%';
+      gameFrame.style.maxWidth = '100%';
+      gameFrame.style.maxHeight = '100%';
+      canvas.width = 640;
+      canvas.height = 480;
+    }
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function renderGameCards(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.setAttribute('role', 'listbox');
+      container.setAttribute('aria-label', 'Select a game');
+      container.innerHTML = games.map((game) => {
+        const isSelected = game.id === currentGame;
+        return `
+        <div class="game-card" role="option" tabindex="0" data-game="${game.id}" onclick="loadGame('${game.id}')" onkeydown="handleGameKeydown(event, '${game.id}')" aria-label="${game.name} - ${game.year}" aria-selected="${isSelected}">
+          <div class="game-icon" aria-hidden="true">${game.icon}</div>
+          <div class="game-info">
+            <h3>${game.name}</h3>
+            <p>${game.year}</p>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function filterGamesByCategory() {
+      renderGameCards('gameList');
+      renderGameCards('homeGameList');
+    }
+
+    function handleGameKeydown(e, gameId) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        loadGame(gameId);
+      }
+    }
+
+    function initGameList() {
+      filterGamesByCategory();
+    }
+
+    // Handle canvas resizing to fill container while maintaining aspect ratio
+    function resizeCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      const container = document.getElementById('crtFrame');
+      const gameContainer = document.querySelector('.game-container');
+      
+      if (!canvas || !container) return;
+      
+      
+      // Always keep internal resolution at 640x480 for game logic
+      if (canvas.width !== 640) canvas.width = 640;
+      if (canvas.height !== 480) canvas.height = 480;
+      
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const aspectRatio = 640 / 480;
+      
+      // Calculate scale to fill container while maintaining aspect ratio
+      let scale = 1;
+      if (containerWidth / containerHeight > aspectRatio) {
+        scale = containerHeight / 480;
+      } else {
+        scale = containerWidth / 640;
+      }
+      
+      
+      // Apply scale via CSS transform
+      canvas.style.transform = `scale(${scale})`;
+      canvas.style.transformOrigin = 'center center';
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+    // Initial resize - wait for DOM to be fully rendered
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(resizeCanvas, 500));
+    } else {
+      setTimeout(resizeCanvas, 500);
+    }
+
+    function loadGame(gameId) {
+      stopGameAudio();
+      showView('play');
+      if (currentGame) {
+        if (gameLoop) cancelAnimationFrame(gameLoop);
+        gameLoop = null;
+        isPaused = true;
+      }
+
+      stopEmulator();
+
+      document.querySelectorAll('.game-card').forEach(card => {
+        const isActive = card.dataset.game === gameId;
+        card.classList.toggle('active', isActive);
+        card.setAttribute('aria-selected', isActive);
+      });
+
+      currentGame = gameId;
+      score = 0;
+      isPaused = true;
+      document.getElementById('scoreValue').textContent = '0';
+      document.getElementById('gameOver').classList.remove('show');
+      document.getElementById('romInfo').style.display = 'none';
+      document.getElementById('pressStart').classList.add('show');
+
+      const game = games.find(g => g.id === gameId);
+      if (!game) {
+        console.error('Game not found:', gameId);
+        return;
+      }
+      
+      document.getElementById('gameTitle').textContent = game.name;
+      document.getElementById('pauseText').textContent = 'START';
+      document.getElementById('pauseIcon').textContent = '▶';
+
+      switch(gameId) {
+        case 'pong': initPong(); break;
+        case 'snake': initSnake(); break;
+        case 'breakout': initBreakout(); break;
+      }
+
+      isPaused = false;
+      document.getElementById('pressStart').classList.remove('show');
+      document.getElementById('pauseText').textContent = 'PAUSE';
+      document.getElementById('pauseIcon').textContent = '⏸';
+
+      document.getElementById('keyboardHint').textContent = `Press SPACE to ${isPaused ? 'start' : 'pause'}`;
+      
+      showControlsGuide(null);
+      applyCanvasResolution();
+      resumeGameAudio();
+
+      if (window.innerWidth <= 768) {
+        toggleSidebar();
+      }
+    }
+
+    function startGameLoop(updateFn, gameId) {
+      isPaused = false;
+      document.getElementById('pressStart').classList.remove('show');
+      document.getElementById('pauseText').textContent = 'PAUSE';
+      document.getElementById('pauseIcon').textContent = '⏸';
+      gameLoop = requestAnimationFrame(updateFn);
+    }
+
+    function showView(view) {
+      previousView = currentView;
+      currentView = view;
+      document.getElementById('homeView').style.display = view === 'home' ? 'flex' : 'none';
+      document.getElementById('emulatorView').style.display = view === 'emulator' ? 'flex' : 'none';
+      document.getElementById('playView').style.display = view === 'play' ? 'flex' : 'none';
+      if (view === 'emulator') {
+        renderSystemCards();
+        renderLibraryBySystem();
+      }
+    }
+
+    function toggleSidebar() {
+      document.querySelector('.sidebar').classList.toggle('open');
+      document.querySelector('.overlay').classList.toggle('show');
+    }
+
+    function exitGameOrEmulator() {
+      stopGameAudio();
+      if (gameLoop) {
+        cancelAnimationFrame(gameLoop);
+        gameLoop = null;
+      }
+      stopEmulator();
+      currentGame = null;
+      isPaused = true;
+      document.getElementById('gameCanvas').style.display = 'block';
+      document.getElementById('emulatorContainer').classList.remove('active');
+      document.getElementById('emulatorContainer').style.display = 'none';
+      document.getElementById('romInfo').style.display = 'none';
+      document.getElementById('gameTitle').textContent = 'Select a Game';
+      document.getElementById('pressStart').classList.add('show');
+      document.getElementById('gameOver').classList.remove('show');
+      document.querySelectorAll('.game-card').forEach(card => {
+        card.classList.remove('active');
+        card.setAttribute('aria-selected', 'false');
+      });
+      showView(previousView);
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      playSound(isPaused ? 'pause' : 'start');
+      document.getElementById('pauseText').textContent = isPaused ? 'START' : 'PAUSE';
+      document.getElementById('pauseIcon').textContent = isPaused ? '▶' : '⏸';
+      document.getElementById('keyboardHint').textContent = `Press SPACE to ${isPaused ? 'start' : 'pause'}`;
+      document.getElementById('pressStart').classList.toggle('show', isPaused && currentGame);
+    }
+
+    // Save System
+    const STORAGE_KEY = 'retroArcade_data';
+    
+    function getSavedData() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        return data ? JSON.parse(data) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveData(data) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        return true;
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+          console.warn('LocalStorage quota exceeded - ROM library may not persist. Consider removing some ROMs.');
+        }
+        return false;
+      }
+    }
+
+    function getHighScore(gameId) {
+      const data = getSavedData();
+      return data.highScores?.[gameId] || 0;
+    }
+
+    function setHighScore(gameId, score) {
+      const data = getSavedData();
+      if (!data.highScores) data.highScores = {};
+      if (score > (data.highScores[gameId] || 0)) {
+        data.highScores[gameId] = score;
+        saveData(data);
+        return true;
+      }
+      return false;
+    }
+
+    function getSettings() {
+      const data = getSavedData();
+      return data.settings || {
+        soundEnabled: false,
+        showHints: true,
+        difficulty: 'normal',
+        resolution: 'auto'
+      };
+    }
+
+    function saveSettings(settings) {
+      const data = getSavedData();
+      data.settings = settings;
+      saveData(data);
+    }
+
+    // ROM Library functions
+    function getRomLibrary() {
+      const data = getSavedData();
+      return data.romLibrary || [];
+    }
+
+    function saveRomLibrary(library) {
+      const data = getSavedData();
+      data.romLibrary = library;
+      return saveData(data);
+    }
+
+    function addToRomLibrary(name, system, fileData) {
+      const library = getRomLibrary();
+      const id = 'rom_' + Date.now();
+      
+      // Check if ROM with same name and system already exists
+      const existingIndex = library.findIndex(r => r.name === name && r.system === system);
+      if (existingIndex >= 0) {
+        // Update existing entry
+        library[existingIndex].lastPlayed = Date.now();
+        library[existingIndex].fileData = fileData;
+      } else {
+        // Add new entry
+        library.push({
+          id: id,
+          name: name,
+          system: system,
+          lastPlayed: Date.now(),
+          fileData: fileData
+        });
+      }
+      
+      saveRomLibrary(library);
+      renderLibraryBySystem(library);
+      renderSidebarLibrary(library);
+      return id;
+    }
+
+    function removeFromRomLibrary(id) {
+      const library = getRomLibrary();
+      const index = library.findIndex(r => r.id === id);
+      if (index >= 0) {
+        library.splice(index, 1);
+        saveRomLibrary(library);
+        renderLibraryBySystem(library);
+        renderSidebarLibrary(library);
+      }
+    }
+
+    function getRomFromLibrary(id) {
+      const library = getRomLibrary();
+      return library.find(r => r.id === id);
+    }
+
+    const systemDisplayNames = {
+      'nes': 'NES',
+      'snes': 'SNES',
+      'gb': 'Game Boy',
+      'gbc': 'Game Boy Color',
+      'gba': 'Game Boy Advance',
+      'genesis': 'Genesis',
+      'sms': 'Master System',
+      'n64': 'N64',
+      'psx': 'PlayStation',
+      'pce': 'PC Engine',
+      'ngp': 'Neo Geo Pocket',
+      'ws': 'WonderSwan'
+    };
+
+    const systemOrder = ['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'sms', 'n64', 'psx', 'pce', 'ngp', 'ws'];
+
+    const systemIcons = {
+      nes: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="56" height="32" rx="4" fill="#dc3545"/><rect x="8" y="12" width="48" height="24" rx="2" fill="#6c757d"/><rect x="12" y="16" width="40" height="16" fill="#212529"/></svg>',
+      snes: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="12" width="60" height="24" rx="6" fill="#6f42c1"/><rect x="6" y="16" width="52" height="16" rx="4" fill="#4a3c6a"/><rect x="12" y="20" width="40" height="8" fill="#2d1f4e"/></svg>',
+      gb: '<svg viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="4" width="32" height="56" rx="6" fill="#6c757d"/><rect x="12" y="12" width="24" height="24" fill="#198754"/><rect x="16" y="40" width="16" height="8" rx="2" fill="#495057"/></svg>',
+      gbc: '<svg viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="4" width="32" height="56" rx="6" fill="#6f42c1"/><rect x="12" y="12" width="24" height="24" fill="#0d6efd"/><rect x="16" y="40" width="16" height="8" rx="2" fill="#5a4d6e"/></svg>',
+      gba: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="12" width="56" height="24" rx="4" fill="#adb5bd"/><rect x="8" y="16" width="48" height="16" rx="2" fill="#495057"/><rect x="12" y="20" width="40" height="8" fill="#212529"/></svg>',
+      genesis: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="56" height="32" rx="2" fill="#212529"/><rect x="8" y="12" width="48" height="24" fill="#0d0d0d"/><rect x="12" y="16" width="40" height="16" fill="#1a1a1a"/><rect x="52" y="20" width="8" height="8" rx="1" fill="#333"/></svg>',
+      sms: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="10" width="56" height="28" rx="2" fill="#212529"/><rect x="8" y="14" width="48" height="20" fill="#0d0d0d"/><rect x="12" y="18" width="36" height="12" fill="#1a1a1a"/></svg>',
+      n64: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M32 4L8 44h48L32 4z" fill="#6c757d"/><path d="M32 12L16 40h32L32 12z" fill="#495057"/><path d="M28 24l-8 16h16l-8-16z" fill="#212529"/></svg>',
+      psx: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="8" width="52" height="32" rx="4" fill="#6c757d"/><rect x="10" y="12" width="44" height="24" rx="2" fill="#495057"/><rect x="14" y="16" width="36" height="16" fill="#212529"/><circle cx="32" cy="24" r="4" fill="#adb5bd"/></svg>',
+      pce: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="10" width="56" height="28" rx="4" fill="#fd7e14"/><rect x="8" y="14" width="48" height="20" rx="2" fill="#ffc107"/><rect x="12" y="18" width="40" height="12" fill="#e0a800"/></svg>',
+      ngp: '<svg viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="4" width="32" height="56" rx="8" fill="#212529"/><rect x="12" y="12" width="24" height="24" fill="#0d0d0d"/><rect x="16" y="40" width="16" height="8" rx="2" fill="#333"/></svg>',
+      ws: '<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="56" height="32" rx="6" fill="#f8f9fa"/><rect x="8" y="12" width="48" height="24" rx="4" fill="#e9ecef"/><rect x="12" y="16" width="40" height="16" fill="#dee2e6"/></svg>'
+    };
+
+    function renderSidebarLibrary(overrideLibrary) {
+      const container = document.getElementById('sidebarLibrary');
+      if (!container) return;
+      const library = overrideLibrary !== undefined ? overrideLibrary : getRomLibrary();
+      if (library.length === 0) {
+        container.innerHTML = '<p class="library-empty-hint" style="color:var(--text-muted);font-size:11px;padding:8px 0">No ROMs yet</p>';
+        return;
+      }
+      const sorted = [...library].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+      const recent = sorted.slice(0, 8);
+      container.innerHTML = recent.map(rom => {
+        const systemName = systemDisplayNames[rom.system] || rom.system.toUpperCase();
+        return `<div class="sidebar-rom-item" onclick="showView('play'); loadRomFromLibrary('${rom.id}')" title="${rom.name} (${systemName})">
+          <span class="rom-name">${rom.name}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function renderLibraryBySystem(overrideLibrary) {
+      const library = overrideLibrary !== undefined ? overrideLibrary : getRomLibrary();
+      const container = document.getElementById('libraryBySystem');
+      if (!container) return;
+      container.innerHTML = '';
+      if (library.length === 0) {
+        container.innerHTML = '<p class="library-empty-hint" style="color:var(--text-secondary);font-size:14px">No ROMs yet. Click a system card above to import or run a ROM.</p>';
+        return;
+      }
+      const bySystem = {};
+      library.forEach(rom => {
+        if (!bySystem[rom.system]) bySystem[rom.system] = [];
+        bySystem[rom.system].push(rom);
+      });
+      systemOrder.forEach(sys => {
+        const roms = bySystem[sys];
+        if (!roms || roms.length === 0) return;
+        const systemName = systemDisplayNames[sys] || sys.toUpperCase();
+        const section = document.createElement('div');
+        section.className = 'library-system-section';
+        section.innerHTML = `<div class="library-system-header">${systemName}</div>`;
+        const list = document.createElement('div');
+        list.className = 'library-system-list';
+        const sorted = [...roms].sort((a, b) => b.lastPlayed - a.lastPlayed);
+        sorted.forEach(rom => {
+          const item = document.createElement('div');
+          item.className = 'library-rom-item';
+          item.innerHTML = `
+            <div class="library-rom-icon">${rom.system.substring(0, 2).toUpperCase()}</div>
+            <div class="library-rom-info">
+              <div class="library-rom-name">${rom.name}</div>
+            </div>
+            <button class="remove-btn" onclick="event.stopPropagation(); removeFromRomLibrary('${rom.id}')" aria-label="Remove">×</button>
+          `;
+          item.addEventListener('click', () => { showView('play'); loadRomFromLibrary(rom.id); });
+          list.appendChild(item);
+        });
+        section.appendChild(list);
+        container.appendChild(section);
+      });
+    }
+
+    function renderSystemCards() {
+      const grid = document.getElementById('systemCardsGrid');
+      if (!grid) return;
+      const library = getRomLibrary();
+      const countBySystem = {};
+      library.forEach(r => { countBySystem[r.system] = (countBySystem[r.system] || 0) + 1; });
+      grid.innerHTML = systemOrder.map(sys => {
+        const count = countBySystem[sys] || 0;
+        const name = systemDisplayNames[sys] || sys.toUpperCase();
+        const icon = systemIcons[sys] || '';
+        return `<div class="system-card" onclick="openRomDialog('${sys}')">
+          <div class="system-card-icon">${icon}</div>
+          <div class="system-card-name">${name}</div>
+          <div class="system-card-count">${count} ROM${count !== 1 ? 's' : ''}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function openRomDialog(preselectedSystem) {
+      document.getElementById('romDialogSystem').value = preselectedSystem || '';
+      document.getElementById('romDialogModal').classList.add('show');
+    }
+
+    function closeRomDialog() {
+      document.getElementById('romDialogModal').classList.remove('show');
+    }
+
+    function romDialogImport() {
+      const sys = document.getElementById('romDialogSystem').value;
+      if (!sys) { showAlert('Please select a system first.'); return; }
+      document.getElementById('systemSelect').value = sys;
+      document.getElementById('romUpload').setAttribute('data-mode', 'import');
+      document.getElementById('romUpload').click();
+      closeRomDialog();
+    }
+
+    function romDialogRun() {
+      const sys = document.getElementById('romDialogSystem').value;
+      if (!sys) { showAlert('Please select a system first.'); return; }
+      document.getElementById('systemSelect').value = sys;
+      document.getElementById('romUpload').setAttribute('data-mode', 'run');
+      document.getElementById('romUpload').click();
+      closeRomDialog();
+    }
+
+    async function loadRomFromLibrary(id) {
+      const rom = getRomFromLibrary(id);
+      if (!rom) return;
+      
+      // Update last played
+      const library = getRomLibrary();
+      const entry = library.find(r => r.id === id);
+      if (entry) {
+        entry.lastPlayed = Date.now();
+        saveRomLibrary(library);
+        renderSidebarLibrary(library);
+      }
+      
+      // Stop any running game
+      if (gameLoop) {
+        cancelAnimationFrame(gameLoop);
+        gameLoop = null;
+      }
+      stopEmulator();
+
+      document.getElementById('gameCanvas').style.display = 'none';
+      document.getElementById('emulatorContainer').classList.add('active');
+      document.getElementById('emulatorContainer').style.display = 'flex';
+      document.getElementById('gameOver').classList.remove('show');
+
+      document.getElementById('romInfo').textContent = `Loading: ${rom.name}`;
+      document.getElementById('romInfo').style.display = 'block';
+      document.getElementById('gameTitle').textContent = rom.name;
+
+      // Set system select
+      document.getElementById('systemSelect').value = rom.system;
+
+      const container = document.getElementById('emulator');
+      container.innerHTML = '';
+
+      try {
+        // Convert stored base64 back to blob
+        const binaryString = atob(rom.fileData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const blob = new Blob([bytes.buffer], { type: 'application/octet-stream' });
+        const romUrl = URL.createObjectURL(blob);
+        trackBlobUrl(romUrl);
+        currentRomBlobUrl = romUrl;
+
+        const containerId = 'emulator-' + Date.now();
+        container.innerHTML = `<div id="${containerId}" style="width:100%;height:100%;"></div>`;
+
+        if (createElementPatchRestore) createElementPatchRestore();
+        const origCE = document.createElement.bind(document);
+        document.createElement = function(tagName, options) {
+          const el = origCE.call(document, tagName, options);
+          if (tagName && tagName.toLowerCase() === 'iframe') {
+            el.allow = (el.allow ? el.allow + '; ' : '') + 'gamepad';
+          }
+          return el;
+        };
+        createElementPatchRestore = function() { document.createElement = origCE; createElementPatchRestore = null; };
+
+        window.EJS_player = '#' + containerId;
+        window.EJS_core = systemToCore[rom.system];
+        window.EJS_gameUrl = romUrl;
+        window.EJS_gameName = rom.name;
+        window.EJS_pathtodata = 'https://cdn.emulatorjs.org/nightly/data/';
+        window.EJS_color = '#ff0080';
+        window.EJS_startOnLoaded = true;
+        window.EJS_alignStartButton = 'center';
+        window.EJS_backgroundColor = '#000000';
+        if (systemControlScheme[rom.system]) window.EJS_controlScheme = systemControlScheme[rom.system];
+        if (rom.system === 'gba') window.EJS_defaultControls = gbaDefaultControls;
+        window.EJS_onGameStart = function() {
+          document.getElementById('romInfo').textContent = `Playing: ${rom.name}`;
+          isEmulatorRunning = true;
+          document.getElementById('pauseText').textContent = 'RUNNING';
+          document.getElementById('pauseIcon').textContent = '▶';
+          focusEmulatorForGamepad();
+        };
+        window.EJS_ready = function() {
+          const gamepadHint = navigator.getGamepads().some(g => g) ? ' — Click game screen, or Reset controls if needed' : '';
+          document.getElementById('romInfo').textContent = `Ready: ${rom.name}${gamepadHint}`;
+          showControlsGuide(rom.system);
+          applyEmulatorResolution();
+          focusEmulatorForGamepad();
+        };
+
+        const script = document.createElement('script');
+        script.src = 'https://cdn.emulatorjs.org/nightly/data/loader.js';
+        script.onerror = function() {
+          document.getElementById('romInfo').textContent = 'Error: Failed to load emulator';
+          document.getElementById('gameCanvas').style.display = 'block';
+          document.getElementById('emulatorContainer').classList.remove('active');
+        };
+        container.appendChild(script);
+
+        // Highlight active library item
+        document.querySelectorAll('.library-item').forEach(el => {
+          el.classList.toggle('active', el.dataset.romId === id);
+        });
+
+      } catch (err) {
+        console.error('ROM load error:', err);
+        document.getElementById('romInfo').textContent = `Error: ${err.message}`;
+        document.getElementById('gameCanvas').style.display = 'block';
+        document.getElementById('emulatorContainer').classList.remove('active');
+      }
+
+      if (window.innerWidth <= 768) {
+        toggleSidebar();
+      }
+    }
+
+    function loadSavedSettings() {
+      const settings = getSettings();
+      currentResolution = settings.resolution || 'auto';
+      soundEnabled = settings.soundEnabled || false;
+      
+      const resSelect = document.getElementById('resolutionSelect');
+      if (resSelect) {
+        resSelect.value = currentResolution;
+      }
+      
+      if (soundEnabled) {
+        initAudio();
+        document.getElementById('soundBtn').classList.add('active');
+        document.getElementById('soundText').textContent = 'On';
+      }
+    }
+
+    // Settings Panel
+    function openSettings() {
+      const modal = document.getElementById('settingsModal');
+      const soundCheck = document.getElementById('settingsSound');
+      const hintsCheck = document.getElementById('settingsHints');
+      
+      const settings = getSettings();
+      soundCheck.checked = settings.soundEnabled;
+      hintsCheck.checked = settings.showHints;
+      
+      updateHighScoresList();
+      updateGamepadStatus();
+      modal.classList.add('show');
+      
+      if (window.innerWidth <= 768) {
+        toggleSidebar();
+      }
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('show');
+    }
+
+    function updateGamepadStatus() {
+      const statusEl = document.getElementById('gamepadStatus');
+      if (!statusEl) return;
+
+      const gamepads = navigator.getGamepads();
+      const connected = [];
+      for (const gp of gamepads) {
+        if (gp) {
+          const name = gp.id.split('(')[0].trim() || 'Gamepad';
+          connected.push(name);
+        }
+      }
+
+      if (connected.length > 0) {
+        statusEl.classList.add('connected');
+        statusEl.innerHTML = `
+          <div class="gamepad-status-dot"></div>
+          <span class="gamepad-status-text">${connected[0]}${connected.length > 1 ? ` +${connected.length - 1} more` : ''}</span>
+        `;
+      } else {
+        statusEl.classList.remove('connected');
+        statusEl.innerHTML = `
+          <div class="gamepad-status-dot"></div>
+          <span class="gamepad-status-text">No gamepad connected</span>
+        `;
+      }
+    }
+
+    function scanForGamepads() {
+      const gamepads = navigator.getGamepads();
+      let found = false;
+      for (const gp of gamepads) {
+        if (gp) {
+          found = true;
+          connectedGamepads[gp.index] = gp;
+        }
+      }
+      
+      if (found) {
+        startGamepadPolling();
+        updateGamepadStatus();
+        
+        // Show notification for first found gamepad
+        const gp = gamepads.find(g => g);
+        if (gp) {
+          showGamepadNotification(gp);
+        }
+      } else {
+        const statusEl = document.getElementById('gamepadStatus');
+        if (statusEl) {
+          statusEl.innerHTML = `
+            <div class="gamepad-status-dot"></div>
+            <span class="gamepad-status-text" style="color:var(--rainbow-1)">No gamepad found - press a button on your controller</span>
+          `;
+        }
+      }
+    }
+
+    function updateSettings() {
+      const settings = {
+        soundEnabled: document.getElementById('settingsSound').checked,
+        showHints: document.getElementById('settingsHints').checked,
+        difficulty: 'normal'
+      };
+      saveSettings(settings);
+      soundEnabled = settings.soundEnabled;
+      if (soundEnabled) {
+        initAudio();
+      }
+      document.getElementById('keyboardHint').style.display = settings.showHints ? 'block' : 'none';
+    }
+
+    function updateHighScoresList() {
+      const list = document.getElementById('highScoresList');
+      const scores = highScores;
+      const gameNames = {
+        pong: 'Pong',
+        snake: 'Snake',
+        breakout: 'Breakout'
+      };
+      
+      let html = '';
+      const hasScores = Object.keys(scores).some(k => scores[k] > 0);
+      
+      if (!hasScores) {
+        html = '<p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No high scores yet</p>';
+      } else {
+        for (const [gameId, score] of Object.entries(scores)) {
+          if (score > 0) {
+            html += `
+              <div class="high-score-item">
+                <span class="game-name">${gameNames[gameId] || gameId}</span>
+                <span class="score">${score}</span>
+              </div>
+            `;
+          }
+        }
+      }
+      list.innerHTML = html;
+    }
+
+    async function clearHighScores() {
+      const confirmed = await showConfirm('Clear all high scores?');
+      if (confirmed) {
+        highScores = {};
+        const data = getSavedData();
+        data.highScores = {};
+        saveData(data);
+        updateHighScoresList();
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function restartGame() {
+      document.getElementById('gameOver').classList.remove('show');
+      loadGame(currentGame);
+    }
+
+    function showGameOver() {
+      isPaused = true;
+      let isNewHigh = false;
+      if (currentGame) {
+        isNewHigh = setHighScore(currentGame, score);
+        highScores[currentGame] = score;
+      }
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('newHighScore').style.display = isNewHigh ? 'inline-block' : 'none';
+      document.getElementById('gameOver').classList.add('show');
+    }
+
+    function updateScore(points) {
+      score += points;
+      document.getElementById('scoreValue').textContent = score;
+      if (currentGame) {
+        const isNewHigh = setHighScore(currentGame, score);
+        if (isNewHigh) {
+          highScores[currentGame] = score;
+        }
+      }
+    }
+
+    function getGameHighScore(gameId) {
+      return highScores[gameId] || 0;
+    }
+
+    // PONG
+    let pongState = {};
+    function initPong() {
+      pongState = {
+        paddleHeight: 80,
+        paddleWidth: 10,
+        ballSize: 10,
+        playerY: 200,
+        aiY: 200,
+        ballX: 315,
+        ballY: 235,
+        ballVX: 4,
+        ballVY: 3,
+        playerScore: 0,
+        aiScore: 0
+      };
+      document.getElementById('keyboardHint').textContent = 'Arrow Keys to move';
+      gameLoop = requestAnimationFrame(updatePong);
+    }
+
+    function updatePong() {
+      if (isPaused) {
+        gameLoop = requestAnimationFrame(updatePong);
+        return;
+      }
+
+      const p = pongState;
+      
+      if (keys['ArrowUp'] || touchState['up']) p.playerY -= 6;
+      if (keys['ArrowDown'] || touchState['down']) p.playerY += 6;
+      p.playerY = Math.max(0, Math.min(canvas.height - p.paddleHeight, p.playerY));
+
+      const aiSpeed = 3.5;
+      if (p.aiY + p.paddleHeight/2 < p.ballY) p.aiY += aiSpeed;
+      else p.aiY -= aiSpeed;
+      p.aiY = Math.max(0, Math.min(canvas.height - p.paddleHeight, p.aiY));
+
+      p.ballX += p.ballVX;
+      p.ballY += p.ballVY;
+
+      if (p.ballY <= 0 || p.ballY >= canvas.height - p.ballSize) {
+        p.ballVY *= -1;
+      }
+
+      if (p.ballX <= p.paddleWidth && 
+          p.ballY + p.ballSize >= p.playerY && 
+          p.ballY <= p.playerY + p.paddleHeight) {
+        p.ballVX = Math.abs(p.ballVX) * 1.05;
+        playSound('hit');
+        p.ballVY += (p.ballY - (p.playerY + p.paddleHeight/2)) * 0.1;
+      }
+
+      if (p.ballX >= canvas.width - p.paddleWidth - p.ballSize && 
+          p.ballY + p.ballSize >= p.aiY && 
+          p.ballY <= p.aiY + p.paddleHeight) {
+        p.ballVX = -Math.abs(p.ballVX) * 1.05;
+        playSound('hit');
+        p.ballVY += (p.ballY - (p.aiY + p.paddleHeight/2)) * 0.1;
+      }
+
+      if (p.ballX < 0) {
+        p.aiScore++;
+        p.ballX = 315;
+        p.ballY = 235;
+        p.ballVX = 4;
+        p.ballVY = 3;
+        if (p.aiScore >= 10) showGameOver();
+      }
+      if (p.ballX > canvas.width) {
+        p.playerScore++;
+        p.ballX = 315;
+        p.ballY = 235;
+        p.ballVX = -4;
+        p.ballVY = 3;
+        if (p.playerScore >= 10) showGameOver();
+      }
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#00ffa3';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width/2, 0);
+      ctx.lineTo(canvas.width/2, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#00ffa3';
+      ctx.fillRect(10, p.playerY, p.paddleWidth, p.paddleHeight);
+      ctx.fillRect(canvas.width - p.paddleWidth - 10, p.aiY, p.paddleWidth, p.paddleHeight);
+
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(p.ballX, p.ballY, p.ballSize, p.ballSize);
+
+      ctx.font = '20px "Rajdhani", sans-serif';
+      ctx.fillStyle = '#00ffa3';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.playerScore, canvas.width/4, 40);
+      ctx.fillText(p.aiScore, canvas.width*3/4, 40);
+
+      gameLoop = requestAnimationFrame(updatePong);
+    }
+
+    // SNAKE
+    let snakeState = {};
+    function initSnake() {
+      snakeState = {
+        gridSize: 20,
+        snake: [{x: 10, y: 10}],
+        direction: {x: 1, y: 0},
+        food: {x: 15, y: 10},
+        speed: 100,
+        lastUpdate: 0
+      };
+      document.getElementById('keyboardHint').textContent = 'Arrow Keys to move';
+      gameLoop = requestAnimationFrame(updateSnake);
+    }
+
+    function updateSnake(timestamp) {
+      if (isPaused) {
+        gameLoop = requestAnimationFrame(updateSnake);
+        return;
+      }
+
+      const s = snakeState;
+      
+      if (timestamp - s.lastUpdate < s.speed) {
+        gameLoop = requestAnimationFrame(updateSnake);
+        return;
+      }
+      s.lastUpdate = timestamp;
+
+      let newDir = s.direction;
+      if (keys['ArrowUp'] || touchState['up']) newDir = {x: 0, y: -1};
+      if (keys['ArrowDown'] || touchState['down']) newDir = {x: 0, y: 1};
+      if (keys['ArrowLeft'] || touchState['left']) newDir = {x: -1, y: 0};
+      if (keys['ArrowRight'] || touchState['right']) newDir = {x: 1, y: 0};
+
+      if (newDir.x !== -s.direction.x || newDir.y !== -s.direction.y) {
+        s.direction = newDir;
+      }
+
+      const head = {x: s.snake[0].x + s.direction.x, y: s.snake[0].y + s.direction.y};
+
+      if (head.x < 0 || head.x >= canvas.width/s.gridSize || 
+          head.y < 0 || head.y >= canvas.height/s.gridSize) {
+        showGameOver();
+        return;
+      }
+
+      for (let segment of s.snake) {
+        if (head.x === segment.x && head.y === segment.y) {
+          showGameOver();
+          return;
+        }
+      }
+
+      s.snake.unshift(head);
+
+      if (head.x === s.food.x && head.y === s.food.y) {
+        updateScore(10);
+        s.food = {
+          x: Math.floor(Math.random() * (canvas.width/s.gridSize)),
+          y: Math.floor(Math.random() * (canvas.height/s.gridSize))
+        };
+        s.speed = Math.max(50, s.speed - 2);
+      } else {
+        s.snake.pop();
+      }
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#00ffa3';
+      for (let i = 0; i < s.snake.length; i++) {
+        const segment = s.snake[i];
+        const offset = i === 0 ? 0 : 2;
+        const size = i === 0 ? s.gridSize : s.gridSize - 4;
+        ctx.fillRect(
+          segment.x * s.gridSize + (i === 0 ? 0 : 2),
+          segment.y * s.gridSize + (i === 0 ? 0 : 2),
+          size, size
+        );
+      }
+
+      ctx.fillStyle = '#ff5c8d';
+      ctx.fillRect(s.food.x * s.gridSize, s.food.y * s.gridSize, s.gridSize, s.gridSize);
+
+      gameLoop = requestAnimationFrame(updateSnake);
+    }
+
+    // BREAKOUT
+    let breakoutState = {};
+    const BREAKOUT_COLORS = ['#ff3366', '#ff6b35', '#ffaa00', '#00ffa3', '#00d4ff', '#7b5cff'];
+    
+    function initBreakout() {
+      breakoutState = {
+        paddleX: 270,
+        paddleY: 450,
+        paddleWidth: 80,
+        paddleHeight: 12,
+        ball: { x: 320, y: 440, vx: 4, vy: -4, radius: 6, active: false },
+        bricks: [],
+        lives: 3,
+        level: 1,
+        score: 0,
+        launched: false,
+        speed: 5
+      };
+      
+      // Create bricks
+      const rows = 5;
+      const cols = 8;
+      const brickWidth = 70;
+      const brickHeight = 20;
+      const padding = 8;
+      const offsetX = 35;
+      const offsetY = 50;
+      
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          breakoutState.bricks.push({
+            x: offsetX + col * (brickWidth + padding),
+            y: offsetY + row * (brickHeight + padding),
+            width: brickWidth,
+            height: brickHeight,
+            color: BREAKOUT_COLORS[row % BREAKOUT_COLORS.length],
+            alive: true
+          });
+        }
+      }
+      
+      document.getElementById('keyboardHint').textContent = '← → Move | SPACE Launch';
+      gameLoop = requestAnimationFrame(updateBreakout);
+    }
+
+    function updateBreakout() {
+      if (isPaused) {
+        gameLoop = requestAnimationFrame(updateBreakout);
+        return;
+      }
+
+      const b = breakoutState;
+      
+      // Paddle movement
+      if (keys['ArrowLeft'] || touchState['left']) {
+        b.paddleX -= 7;
+        playSound('move');
+      }
+      if (keys['ArrowRight'] || touchState['right']) {
+        b.paddleX += 7;
+        playSound('move');
+      }
+      b.paddleX = Math.max(0, Math.min(canvas.width - b.paddleWidth, b.paddleX));
+      
+      // Launch ball
+      if (!b.launched && (keys[' '] || touchState['action'])) {
+        b.launched = true;
+        b.ball.active = true;
+        b.ball.vx = (Math.random() > 0.5 ? 1 : -1) * b.speed;
+        b.ball.vy = -b.speed;
+        playSound('start');
+      }
+      
+      if (b.launched) {
+        // Ball movement
+        b.ball.x += b.ball.vx;
+        b.ball.y += b.ball.vy;
+        
+        // Wall collisions
+        if (b.ball.x - b.ball.radius <= 0 || b.ball.x + b.ball.radius >= canvas.width) {
+          b.ball.vx *= -1;
+          playSound('hit');
+        }
+        if (b.ball.y - b.ball.radius <= 0) {
+          b.ball.vy *= -1;
+          playSound('hit');
+        }
+        
+        // Paddle collision
+        if (b.ball.y + b.ball.radius >= b.paddleY &&
+            b.ball.y - b.ball.radius <= b.paddleY + b.paddleHeight &&
+            b.ball.x >= b.paddleX &&
+            b.ball.x <= b.paddleX + b.paddleWidth) {
+          b.ball.vy = -Math.abs(b.ball.vy);
+          // Add spin based on where it hit the paddle
+          const hitPos = (b.ball.x - b.paddleX) / b.paddleWidth;
+          b.ball.vx = (hitPos - 0.5) * 8;
+          b.speed = Math.min(10, b.speed + 0.1);
+          playSound('hit');
+        }
+        
+        // Brick collisions
+        for (const brick of b.bricks) {
+          if (!brick.alive) continue;
+          if (b.ball.x + b.ball.radius > brick.x &&
+              b.ball.x - b.ball.radius < brick.x + brick.width &&
+              b.ball.y + b.ball.radius > brick.y &&
+              b.ball.y - b.ball.radius < brick.y + brick.height) {
+            brick.alive = false;
+            b.score += 10 * (6 - Math.floor((brick.y - 50) / 28));
+            updateScore(10);
+            b.ball.vy *= -1;
+            playSound('explosion');
+            break;
+          }
+        }
+        
+        // Ball lost
+        if (b.ball.y > canvas.height) {
+          b.lives--;
+          b.launched = false;
+          b.ball.x = b.paddleX + b.paddleWidth / 2;
+          b.ball.y = b.paddleY - 20;
+          b.ball.vx = 0;
+          b.ball.vy = 0;
+          playSound('die');
+          
+          if (b.lives <= 0) {
+            showGameOver();
+            return;
+          }
+        }
+        
+        // Check win
+        if (b.bricks.every(brick => !brick.alive)) {
+          b.level++;
+          b.speed += 0.5;
+          initBreakout();
+          b.level = breakoutState.level;
+          b.lives = breakoutState.lives;
+          b.score = breakoutState.score;
+          score = b.score;
+        }
+      } else {
+        // Ball follows paddle before launch
+        b.ball.x = b.paddleX + b.paddleWidth / 2;
+      }
+
+      // Draw
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Background grid
+      ctx.strokeStyle = 'rgba(123, 92, 255, 0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 30) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 30) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      
+      // Draw bricks
+      for (const brick of b.bricks) {
+        if (!brick.alive) continue;
+        ctx.fillStyle = brick.color;
+        ctx.shadowColor = brick.color;
+        ctx.shadowBlur = 10;
+        ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+        ctx.shadowBlur = 0;
+      }
+      
+      // Draw paddle
+      ctx.fillStyle = '#00ffa3';
+      ctx.shadowColor = '#00ffa3';
+      ctx.shadowBlur = 15;
+      ctx.fillRect(b.paddleX, b.paddleY, b.paddleWidth, b.paddleHeight);
+      ctx.shadowBlur = 0;
+      
+      // Draw ball
+      if (b.launched || !b.launched) {
+        ctx.beginPath();
+        ctx.arc(b.ball.x, b.ball.y, b.ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      // Draw HUD
+      ctx.font = 'bold 20px "Rajdhani", sans-serif';
+      ctx.fillStyle = '#00ffa3';
+      ctx.textAlign = 'left';
+      ctx.fillText(`SCORE: ${b.score}`, 20, 30);
+      
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#7b5cff';
+      ctx.fillText(`LEVEL ${b.level}`, canvas.width / 2, 30);
+      
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#ff3366';
+      ctx.fillText(`LIVES: ${'♥'.repeat(b.lives)}`, canvas.width - 20, 30);
+      
+      // Launch hint
+      if (!b.launched) {
+        ctx.font = '16px "Rajdhani", sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press SPACE to launch', canvas.width / 2, canvas.height / 2 + 50);
+      }
+
+      gameLoop = requestAnimationFrame(updateBreakout);
+    }
+
+    // ROM Loading with EmulatorJS
+
+    const controlGuides = {
+      builtin: {
+        pong: [
+          { keys: ['↑', '↓'], action: 'Move paddle' },
+          { keys: ['SPACE'], action: 'Start/Pause' }
+        ],
+        snake: [
+          { keys: ['↑', '↓', '←', '→'], action: 'Move snake' },
+          { keys: ['SPACE'], action: 'Start/Pause' }
+        ],
+        breakout: [
+          { keys: ['←', '→'], action: 'Move paddle' },
+          { keys: ['SPACE'], action: 'Launch ball' },
+          { keys: ['SPACE'], action: 'Start/Pause' }
+        ]
+      },
+      nes: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'A Button' },
+        { keys: ['X'], action: 'B Button' },
+        { keys: ['ENTER'], action: 'Start' },
+        { keys: ['SHIFT'], action: 'Select' }
+      ],
+      snes: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'A' },
+        { keys: ['X'], action: 'B' },
+        { keys: ['A'], action: 'X' },
+        { keys: ['S'], action: 'Y' },
+        { keys: ['ENTER'], action: 'Start' },
+        { keys: ['SHIFT'], action: 'Select' }
+      ],
+      gb: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'A' },
+        { keys: ['X'], action: 'B' },
+        { keys: ['ENTER'], action: 'Start' },
+        { keys: ['SHIFT'], action: 'Select' }
+      ],
+      gba: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'A' },
+        { keys: ['X'], action: 'B' },
+        { keys: ['A'], action: 'L' },
+        { keys: ['S'], action: 'R' },
+        { keys: ['ENTER'], action: 'Start' },
+        { keys: ['SHIFT'], action: 'Select' }
+      ],
+      genesis: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'A' },
+        { keys: ['X'], action: 'B' },
+        { keys: ['C'], action: 'C' },
+        { keys: ['A'], action: 'Start' }
+      ],
+      n64: [
+        { keys: ['↑', '↓', '←', '→'], action: 'Analog' },
+        { keys: ['Z'], action: 'A' },
+        { keys: ['X'], action: 'B' },
+        { keys: ['A'], action: 'L' },
+        { keys: ['S'], action: 'R' },
+        { keys: ['ENTER'], action: 'Start' }
+      ],
+      psx: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'X' },
+        { keys: ['X'], action: 'O' },
+        { keys: ['A'], action: '□' },
+        { keys: ['S'], action: '△' },
+        { keys: ['ENTER'], action: 'Start' },
+        { keys: ['SHIFT'], action: 'Select' }
+      ],
+      sms: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: '1' },
+        { keys: ['X'], action: '2' }
+      ],
+      pce: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'I' },
+        { keys: ['X'], action: 'II' },
+        { keys: ['ENTER'], action: 'Run' },
+        { keys: ['SHIFT'], action: 'Select' }
+      ],
+      ngp: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'A' },
+        { keys: ['X'], action: 'B' }
+      ],
+      ws: [
+        { keys: ['↑', '↓', '←', '→'], action: 'D-Pad' },
+        { keys: ['Z'], action: 'A' },
+        { keys: ['X'], action: 'B' },
+        { keys: ['ENTER'], action: 'Start' }
+      ]
+    };
+
+    function showControlsGuide(system) {
+      const guide = document.getElementById('controlsGuide');
+      const builtinGames = ['pong', 'snake', 'breakout'];
+      const isBuiltin = builtinGames.includes(currentGame);
+      
+      let controls;
+      let title;
+      
+      if (isBuiltin) {
+        controls = controlGuides.builtin[currentGame];
+        title = 'Controls';
+      } else if (controlGuides[system]) {
+        controls = controlGuides[system];
+        title = system.toUpperCase() + ' Controls';
+      }
+      
+      if (!controls) {
+        guide.classList.remove('show');
+        return;
+      }
+      
+      guide.innerHTML = `
+        <h4>${title}</h4>
+        <div class="controls-grid">
+          ${controls.map(c => `
+            <div class="control-item">
+              ${c.keys.map(k => `<span class="key">${k}</span>`).join('')}
+              <span>${c.action}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      guide.classList.add('show');
+    }
+
+    const systemSelect = document.getElementById('systemSelect');
+    systemSelect.innerHTML = `
+      <option value="">-- Select System --</option>
+      <option value="nes">NES (Nintendo Entertainment System)</option>
+      <option value="snes">SNES (Super Nintendo)</option>
+      <option value="gb">Game Boy</option>
+      <option value="gbc">Game Boy Color</option>
+      <option value="gba">Game Boy Advance</option>
+      <option value="genesis">Sega Genesis</option>
+      <option value="sms">Sega Master System</option>
+      <option value="n64">Nintendo 64</option>
+      <option value="psx">PlayStation</option>
+      <option value="pce">PC Engine</option>
+      <option value="ngp">Neo Geo Pocket</option>
+      <option value="ws">WonderSwan</option>
+    `;
+
+    const systemToCore = {
+      'nes': 'fceumm',
+      'snes': 'snes9x',
+      'gb': 'gambatte',
+      'gbc': 'gambatte',
+      'gba': 'mgba',
+      'genesis': 'genesis_plus_gx',
+      'sms': 'smsplus',
+      'n64': 'mupen64plus_next',
+      'psx': 'mednafen_psx_hw',
+      'pce': 'mednafen_pce',
+      'ngp': 'mednafen_ngp',
+      'ws': 'mednafen_wswan'
+    };
+
+    const gbaDefaultControls = {
+      0: {
+        0: { value: 'x', value2: 'BUTTON_2' },
+        1: { value: 'a', value2: 'BUTTON_4' },
+        2: { value: 'v', value2: 'SELECT' },
+        3: { value: 'enter', value2: 'START' },
+        4: { value: 'up arrow', value2: 'DPAD_UP' },
+        5: { value: 'down arrow', value2: 'DPAD_DOWN' },
+        6: { value: 'left arrow', value2: 'DPAD_LEFT' },
+        7: { value: 'right arrow', value2: 'DPAD_RIGHT' },
+        8: { value: 'z', value2: 'BUTTON_1' },
+        9: { value: 's', value2: 'BUTTON_3' },
+        10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
+        11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' }
+      },
+      1: {}, 2: {}, 3: {}
+    };
+
+    const systemControlScheme = {
+      'nes': 'nes',
+      'snes': 'snes',
+      'gb': 'gb',
+      'gbc': 'gb',
+      'gba': 'gba',
+      'genesis': 'segaMD',
+      'sms': 'segaMS',
+      'n64': 'n64',
+      'psx': 'psx',
+      'pce': 'pce',
+      'ngp': 'ngp',
+      'ws': 'ws'
+    };
+
+    const systemExtensions = {
+      'nes': ['.nes', '.zip'],
+      'snes': ['.sfc', '.smc', '.zip'],
+      'gb': ['.gb', '.zip'],
+      'gbc': ['.gbc', '.zip'],
+      'gba': ['.gba', '.zip'],
+      'genesis': ['.md', '.bin', '.gen', '.zip'],
+      'sms': ['.sms', '.zip'],
+      'n64': ['.z64', '.n64', '.v64', '.zip'],
+      'psx': ['.bin', '.cue', '.chd', '.pbp', '.zip'],
+      'pce': ['.pce', '.zip'],
+      'ngp': ['.ngp', '.zip'],
+      'ws': ['.ws', '.zip']
+    };
+
+    function inferSystemFromFileName(fileName) {
+      const lower = fileName.toLowerCase();
+      for (const [system, exts] of Object.entries(systemExtensions)) {
+        if (exts.some(ext => lower.endsWith(ext))) return system;
+      }
+      return null;
+    }
+
+    document.getElementById('romUpload').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      let system = document.getElementById('systemSelect').value;
+      if (!system) {
+        system = inferSystemFromFileName(file.name);
+        if (system) {
+          document.getElementById('systemSelect').value = system;
+        } else {
+          await showAlert('Please select a system first, or use a file with a recognized extension (.gba, .nes, .sfc, etc.)');
+          e.target.value = '';
+          return;
+        }
+      }
+
+      // Validate file extension
+      const fileName = file.name.toLowerCase();
+      const validExtensions = systemExtensions[system] || [];
+      const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+      
+      if (!hasValidExtension) {
+        const proceed = await showConfirm(
+          `Warning: "${file.name}" may not be a valid ${system.toUpperCase()} ROM.\n` +
+          `Expected extensions: ${validExtensions.join(', ')}\n\n` +
+          `Try to load anyway?`
+        );
+        if (!proceed) {
+          e.target.value = '';
+          return;
+        }
+      }
+
+      // Stop any running JS game
+      if (gameLoop) {
+        cancelAnimationFrame(gameLoop);
+        gameLoop = null;
+      }
+      stopEmulator();
+
+      document.getElementById('gameCanvas').style.display = 'none';
+      document.getElementById('emulatorContainer').classList.add('active');
+      document.getElementById('emulatorContainer').style.display = 'flex';
+      document.getElementById('gameOver').classList.remove('show');
+
+      showView('play');
+      document.getElementById('romInfo').textContent = `Loading: ${file.name}`;
+      document.getElementById('romInfo').style.display = 'block';
+      document.getElementById('gameTitle').textContent = file.name.replace(/\.[^/.]+$/, '');
+
+      const container = document.getElementById('emulator');
+      container.innerHTML = '';
+
+      document.getElementById('romUpload').removeAttribute('data-mode');
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const romName = file.name.replace(/\.[^/.]+$/, '');
+        const bytes = new Uint8Array(arrayBuffer);
+        let binaryStr = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binaryStr += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        const base64 = btoa(binaryStr);
+        addToRomLibrary(romName, system, base64);
+        
+        // Create a blob URL for the ROM file
+        const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+        const romUrl = URL.createObjectURL(blob);
+        trackBlobUrl(romUrl);
+        currentRomBlobUrl = romUrl;
+
+        const gameName = file.name.replace(/\.[^/.]+$/, '');
+        const containerId = 'emulator-' + Date.now();
+        container.innerHTML = `<div id="${containerId}" style="width:100%;height:100%;"></div>`;
+
+        if (createElementPatchRestore) createElementPatchRestore();
+        const origCE = document.createElement.bind(document);
+        document.createElement = function(tagName, options) {
+          const el = origCE.call(document, tagName, options);
+          if (tagName && tagName.toLowerCase() === 'iframe') {
+            el.allow = (el.allow ? el.allow + '; ' : '') + 'gamepad';
+          }
+          return el;
+        };
+        createElementPatchRestore = function() { document.createElement = origCE; createElementPatchRestore = null; };
+
+        window.EJS_player = '#' + containerId;
+        window.EJS_core = systemToCore[system];
+        window.EJS_gameUrl = romUrl;
+        window.EJS_gameName = gameName;
+        window.EJS_pathtodata = 'https://cdn.emulatorjs.org/nightly/data/';
+        window.EJS_color = '#ff0080';
+        window.EJS_startOnLoaded = true;
+        window.EJS_alignStartButton = 'center';
+        window.EJS_backgroundColor = '#000000';
+        if (systemControlScheme[system]) window.EJS_controlScheme = systemControlScheme[system];
+        if (system === 'gba') window.EJS_defaultControls = gbaDefaultControls;
+        window.EJS_onGameStart = function() {
+          document.getElementById('romInfo').textContent = `Playing: ${file.name}`;
+          isEmulatorRunning = true;
+          document.getElementById('pauseText').textContent = 'RUNNING';
+          document.getElementById('pauseIcon').textContent = '▶';
+          focusEmulatorForGamepad();
+        };
+        window.EJS_ready = function() {
+          const gamepadHint = navigator.getGamepads().some(g => g) ? ' — Click game screen, or Reset controls if needed' : '';
+          document.getElementById('romInfo').textContent = `Ready: ${file.name}${gamepadHint}`;
+          showControlsGuide(system);
+          applyEmulatorResolution();
+          focusEmulatorForGamepad();
+        };
+
+        const script = document.createElement('script');
+        script.src = 'https://cdn.emulatorjs.org/nightly/data/loader.js';
+        script.onerror = function() {
+          document.getElementById('romInfo').textContent = 'Error: Failed to load emulator';
+          document.getElementById('gameCanvas').style.display = 'block';
+          document.getElementById('emulatorContainer').classList.remove('active');
+        };
+        container.appendChild(script);
+      } catch (err) {
+        console.error('ROM load error:', err);
+        document.getElementById('romInfo').textContent = `Error: ${err.message}`;
+        document.getElementById('gameCanvas').style.display = 'block';
+        document.getElementById('emulatorContainer').classList.remove('active');
+      }
+
+      e.target.value = '';
+      if (window.innerWidth <= 768) {
+        toggleSidebar();
+      }
+    });
+
+    function grantEmulatorGamepadAccess(container) {
+      if (!container) return;
+      const iframes = container.querySelectorAll('iframe');
+      iframes.forEach(iframe => {
+        if (!iframe.allow || !iframe.allow.includes('gamepad')) {
+          iframe.allow = (iframe.allow ? iframe.allow + '; ' : '') + 'gamepad';
+        }
+      });
+    }
+
+    function focusEmulatorForGamepad() {
+      const container = document.getElementById('emulator');
+      if (!container) return;
+      grantEmulatorGamepadAccess(container);
+      const tryFocus = (attempt) => {
+        const iframe = container.querySelector('iframe');
+        const canvas = container.querySelector('canvas');
+        if (iframe) {
+          try { iframe.focus(); } catch (e) {}
+        } else if (canvas && canvas.tabIndex >= 0) {
+          try { canvas.focus(); } catch (e) {}
+        } else if (attempt < 5) {
+          setTimeout(() => tryFocus(attempt + 1), 150 * attempt);
+        }
+      };
+      tryFocus(0);
+    }
+
+    function stopEmulator() {
+      stopGameAudio();
+      if (createElementPatchRestore) {
+        createElementPatchRestore();
+      }
+      if (window.EJS_emulator) {
+        try { window.EJS_emulator.exit(); } catch (e) {}
+      }
+      const container = document.getElementById('emulator');
+      if (container) {
+        const iframes = container.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+          try { iframe.src = 'about:blank'; } catch (e) {}
+        });
+      }
+      if (currentRomBlobUrl) {
+        try { URL.revokeObjectURL(currentRomBlobUrl); activeBlobUrls.delete(currentRomBlobUrl); } catch (e) {}
+        currentRomBlobUrl = null;
+      }
+      if (window.EJS_gameUrl && window.EJS_gameUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(window.EJS_gameUrl); } catch (e) {}
+      }
+      window.EJS_player = undefined;
+      window.EJS_core = undefined;
+      window.EJS_gameUrl = undefined;
+      window.EJS_gameName = undefined;
+      window.EJS_onGameStart = undefined;
+      window.EJS_ready = undefined;
+      isEmulatorRunning = false;
+      document.getElementById('emulatorContainer').classList.remove('active');
+      document.getElementById('emulatorContainer').style.display = 'none';
+      document.getElementById('gameCanvas').style.display = 'block';
+      document.getElementById('controlsGuide').classList.remove('show');
+      if (container) container.innerHTML = '';
+      resetResolution();
+    }
+
+    document.addEventListener('keydown', e => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+        e.preventDefault();
+      }
+      keyboardKeys[e.key] = true;
+      keys[e.key] = true;
+      if (e.key === ' ' && currentGame) {
+        // Only toggle pause from "press start" state or when already paused
+        if (document.getElementById('pressStart').classList.contains('show') || isPaused) {
+          togglePause();
+        }
+      }
+    });
+
+    document.addEventListener('keyup', e => {
+      keyboardKeys[e.key] = false;
+      keys[e.key] = false;
+    });
+
+    // Gamepad Support
+    function initGamepadSupport() {
+      window.addEventListener('gamepadconnected', (e) => {
+        connectedGamepads[e.gamepad.index] = e.gamepad;
+        showGamepadNotification(e.gamepad);
+        startGamepadPolling();
+        updateGamepadIndicator();
+      });
+
+      window.addEventListener('gamepaddisconnected', (e) => {
+        delete connectedGamepads[e.gamepad.index];
+        if (Object.keys(connectedGamepads).length === 0) {
+          stopGamepadPolling();
+        }
+        showGamepadDisconnectedNotification();
+        updateGamepadIndicator();
+      });
+
+      // Check for already connected gamepads
+      const gamepads = navigator.getGamepads();
+      let foundGamepad = false;
+      for (const gp of gamepads) {
+        if (gp) {
+          connectedGamepads[gp.index] = gp;
+          foundGamepad = true;
+        }
+      }
+      if (foundGamepad) {
+        startGamepadPolling();
+        updateGamepadIndicator();
+        // Show notification for already connected gamepad
+        const gp = gamepads[0];
+        if (gp) showGamepadNotification(gp);
+      }
+    }
+
+    function startGamepadPolling() {
+      if (gamepadPollInterval) return;
+      gamepadPollInterval = setInterval(pollGamepads, 16);
+    }
+
+    function stopGamepadPolling() {
+      if (gamepadPollInterval) {
+        clearInterval(gamepadPollInterval);
+        gamepadPollInterval = null;
+      }
+      gamepadState = {};
+      // Reset touch state when stopping polling
+      touchState['up'] = false;
+      touchState['down'] = false;
+      touchState['left'] = false;
+      touchState['right'] = false;
+      touchState['action'] = false;
+    }
+
+    const GAMEPAD_DEADZONE = 0.15;
+    const GAMEPAD_BUTTON_REPEAT_DELAY = 200;
+
+    let lastGamepadButtonTime = {};
+
+    function updateGamepadIndicator() {
+      const indicator = document.getElementById('gamepadIndicator');
+      if (indicator) {
+        if (Object.keys(connectedGamepads).length > 0) {
+          indicator.style.display = 'inline-flex';
+          indicator.classList.add('active');
+        } else {
+          indicator.style.display = 'none';
+          indicator.classList.remove('active');
+        }
+      }
+    }
+
+    function pollGamepads() {
+      const gamepads = navigator.getGamepads();
+      
+      // Start with keyboard state for keys that gamepad controls
+      // This ensures keyboard releases are properly handled
+      keys['ArrowUp'] = keyboardKeys['ArrowUp'] || false;
+      keys['ArrowDown'] = keyboardKeys['ArrowDown'] || false;
+      keys['ArrowLeft'] = keyboardKeys['ArrowLeft'] || false;
+      keys['ArrowRight'] = keyboardKeys['ArrowRight'] || false;
+      keys[' '] = keyboardKeys[' '] || false;
+      keys['z'] = keyboardKeys['z'] || false;
+      keys['x'] = keyboardKeys['x'] || false;
+      keys['Shift'] = keyboardKeys['Shift'] || false;
+      keys['Enter'] = keyboardKeys['Enter'] || false;
+      
+      // Reset touch state at start of each poll (will be OR'd with gamepad below)
+      const gamepadTouchState = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        action: false
+      };
+
+      let anyGamepadActive = false;
+
+      for (const gp of gamepads) {
+        if (!gp) continue;
+
+        const axes = gp.axes || [];
+        const buttons = gp.buttons || [];
+
+        // D-pad and analog stick to arrow keys
+        // Standard mapping: buttons 12-15 are d-pad on standard gamepads
+        // Axes 0-1 are left stick
+        const upPressed = (buttons[12] && buttons[12].pressed) || (axes[1] !== undefined && axes[1] < -GAMEPAD_DEADZONE);
+        const downPressed = (buttons[13] && buttons[13].pressed) || (axes[1] !== undefined && axes[1] > GAMEPAD_DEADZONE);
+        const leftPressed = (buttons[14] && buttons[14].pressed) || (axes[0] !== undefined && axes[0] < -GAMEPAD_DEADZONE);
+        const rightPressed = (buttons[15] && buttons[15].pressed) || (axes[0] !== undefined && axes[0] > GAMEPAD_DEADZONE);
+
+        // Action buttons (standard: 0=A, 1=B, 2=X, 3=Y)
+        const aButton = buttons[0] && buttons[0].pressed;
+        const bButton = buttons[1] && buttons[1].pressed;
+        const xButton = buttons[2] && buttons[2].pressed;
+        const yButton = buttons[3] && buttons[3].pressed;
+        const actionPressed = aButton || bButton || xButton || yButton;
+
+        // Start/Select buttons (standard: 8=Select, 9=Start)
+        const startPressed = buttons[9] && buttons[9].pressed;
+        const selectPressed = buttons[8] && buttons[8].pressed;
+
+        // Shoulder buttons (standard: 4=L1, 5=R1, 6=L2, 7=R2)
+        const shoulderL = (buttons[4] && buttons[4].pressed) || (buttons[6] && buttons[6].pressed);
+        const shoulderR = (buttons[5] && buttons[5].pressed) || (buttons[7] && buttons[7].pressed);
+
+        // OR gamepad inputs into keys
+        keys['ArrowUp'] = keys['ArrowUp'] || upPressed;
+        keys['ArrowDown'] = keys['ArrowDown'] || downPressed;
+        keys['ArrowLeft'] = keys['ArrowLeft'] || leftPressed;
+        keys['ArrowRight'] = keys['ArrowRight'] || rightPressed;
+        keys[' '] = keys[' '] || actionPressed;
+        keys['z'] = keys['z'] || aButton || xButton;
+        keys['x'] = keys['x'] || bButton || yButton;
+        keys['Shift'] = keys['Shift'] || shoulderL || selectPressed;
+        keys['Enter'] = keys['Enter'] || shoulderR || startPressed;
+
+        // Track gamepad touch state
+        gamepadTouchState.up = gamepadTouchState.up || upPressed;
+        gamepadTouchState.down = gamepadTouchState.down || downPressed;
+        gamepadTouchState.left = gamepadTouchState.left || leftPressed;
+        gamepadTouchState.right = gamepadTouchState.right || rightPressed;
+        gamepadTouchState.action = gamepadTouchState.action || actionPressed;
+
+        // Handle start button for pause
+        if (startPressed) {
+          const now = Date.now();
+          const key = gp.index + '_start';
+          if (!lastGamepadButtonTime[key] || now - lastGamepadButtonTime[key] > GAMEPAD_BUTTON_REPEAT_DELAY) {
+            lastGamepadButtonTime[key] = now;
+            if (currentGame) {
+              togglePause();
+            }
+          }
+        }
+
+        // Store gamepad state for UI (use first active gamepad)
+        if (!anyGamepadActive && (upPressed || downPressed || leftPressed || rightPressed || actionPressed)) {
+          gamepadState = {
+            up: upPressed,
+            down: downPressed,
+            left: leftPressed,
+            right: rightPressed,
+            action: actionPressed,
+            start: startPressed,
+            select: selectPressed,
+            shoulderL: shoulderL,
+            shoulderR: shoulderR
+          };
+          anyGamepadActive = true;
+        }
+
+        // Update connectedGamepads with fresh reference
+        connectedGamepads[gp.index] = gp;
+      }
+
+      // Apply gamepad touch state OR with existing touch state (for compatibility)
+      touchState['up'] = touchState['up'] || gamepadTouchState.up;
+      touchState['down'] = touchState['down'] || gamepadTouchState.down;
+      touchState['left'] = touchState['left'] || gamepadTouchState.left;
+      touchState['right'] = touchState['right'] || gamepadTouchState.right;
+      touchState['action'] = touchState['action'] || gamepadTouchState.action;
+    }
+
+    function showGamepadNotification(gamepad) {
+      const name = gamepad.id.split('(')[0].trim() || 'Gamepad';
+      const notification = document.createElement('div');
+      notification.className = 'gamepad-notification';
+      notification.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="6" width="20" height="12" rx="2"/>
+          <circle cx="8" cy="12" r="2"/>
+          <circle cx="16" cy="12" r="1"/>
+          <circle cx="18" cy="10" r="1"/>
+          <circle cx="18" cy="14" r="1"/>
+        </svg>
+        <span>${name} Connected</span>
+      `;
+      document.body.appendChild(notification);
+
+      // Add indicator to keyboard hint
+      const hint = document.getElementById('keyboardHint');
+      if (hint && !hint.textContent.includes('Gamepad')) {
+        hint.dataset.originalText = hint.textContent;
+        hint.textContent = hint.textContent + ' | Gamepad Ready';
+      }
+
+      setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    function showGamepadDisconnectedNotification() {
+      const notification = document.createElement('div');
+      notification.className = 'gamepad-notification gamepad-disconnected';
+      notification.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="6" width="20" height="12" rx="2"/>
+          <line x1="4" y1="4" x2="20" y2="20" stroke-width="2"/>
+        </svg>
+        <span>Gamepad Disconnected</span>
+      `;
+      document.body.appendChild(notification);
+
+      // Restore original hint if no gamepads left
+      if (Object.keys(connectedGamepads).length === 0) {
+        const hint = document.getElementById('keyboardHint');
+        if (hint && hint.dataset.originalText) {
+          hint.textContent = hint.dataset.originalText;
+        }
+      }
+
+      setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // Memory cleanup on page unload
+    const activeBlobUrls = new Set();
+
+    function trackBlobUrl(url) {
+      activeBlobUrls.add(url);
+    }
+
+    function cleanup() {
+      // Stop game loop
+      if (gameLoop) {
+        cancelAnimationFrame(gameLoop);
+        gameLoop = null;
+      }
+      
+      // Stop emulator
+      stopEmulator();
+      
+      // Stop gamepad polling
+      stopGamepadPolling();
+      
+      // Revoke all blob URLs
+      for (const url of activeBlobUrls) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {}
+      }
+      activeBlobUrls.clear();
+      
+      // Clear any pending notifications
+      document.querySelectorAll('.gamepad-notification').forEach(n => n.remove());
+    }
+
+    window.addEventListener('beforeunload', cleanup);
+
+    initGameList();
+    initGamepadSupport();
+    loadSavedSettings();
+    renderSystemCards();
+    renderLibraryBySystem();
+    renderSidebarLibrary();
+
+    document.getElementById('emulatorContainer').addEventListener('click', function(e) {
+      if (document.getElementById('emulatorContainer').classList.contains('active')) {
+        focusEmulatorForGamepad();
+      }
+    });
+  </script>
+</body>
+</html>

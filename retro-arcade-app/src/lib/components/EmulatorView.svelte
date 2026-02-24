@@ -1,0 +1,119 @@
+<script>
+  import { romLibrary } from '$lib/stores/romLibraryStore.js';
+  import { systemOrder, systemDisplayNames } from '$lib/config/systems.js';
+  import { systemIcons } from '$lib/config/systems.js';
+  import { getThumbnailUrl } from '$lib/services/thumbnailService.js';
+  import { removeFromRomLibrary } from '$lib/services/storage.js';
+  import { showConfirm } from '$lib/services/dialog.js';
+
+  export let onOpenRomDialog = (system) => {};
+  export let onLoadRom = (id) => {};
+
+  function getRomThumbnail(rom) {
+    return getThumbnailUrl(rom.name, rom.system);
+  }
+
+  function getRomFallbackIcon(rom) {
+    return systemIcons[rom.system] || null;
+  }
+
+  async function handleRemoveRom(rom, e) {
+    e?.stopPropagation?.();
+    const ok = await showConfirm(`Remove "${rom.name}" from library?`);
+    if (ok) {
+      await removeFromRomLibrary(rom.id);
+      romLibrary.refresh();
+    }
+  }
+
+  $: countBySystem = {};
+  $: {
+    const lib = $romLibrary;
+    const counts = {};
+    systemOrder.forEach(s => { counts[s] = 0; });
+    lib.forEach(r => { counts[r.system] = (counts[r.system] || 0) + 1; });
+    countBySystem = counts;
+  }
+
+  $: libraryBySystem = {};
+  $: {
+    const lib = $romLibrary;
+    const by = {};
+    systemOrder.forEach(s => { by[s] = []; });
+    lib.forEach(r => { if (by[r.system]) by[r.system].push(r); });
+    systemOrder.forEach(s => { by[s] = by[s].sort((a,b) => (b.lastPlayed||0) - (a.lastPlayed||0)); });
+    libraryBySystem = by;
+  }
+</script>
+
+<div class="main-view emulator-view">
+  <div class="emulator-scroll">
+    <h1 style="font-family: var(--font-display); font-size: 28px; color: var(--text-primary); margin-bottom: 20px">Emulator Select</h1>
+    <div class="section-title" style="margin-bottom: 12px">Systems</div>
+    <div class="system-cards-grid">
+      {#each systemOrder as sys}
+        <div class="system-card" role="button" on:click={() => onOpenRomDialog(sys)}>
+          <div class="system-card-icon">{@html systemIcons[sys] || ''}</div>
+          <div class="system-card-name">{systemDisplayNames[sys] || sys.toUpperCase()}</div>
+          <div class="system-card-count">{countBySystem[sys] || 0} ROM{(countBySystem[sys] || 0) !== 1 ? 's' : ''}</div>
+        </div>
+      {/each}
+    </div>
+    <div class="section-title" style="margin-top: 24px; margin-bottom: 12px">My Library</div>
+    <div class="library-by-system">
+      {#if $romLibrary.length === 0}
+        <p class="library-empty-hint" style="color: var(--text-secondary); font-size: 14px">No ROMs yet. Click a system card above to import or run a ROM.</p>
+      {:else}
+        {#each systemOrder as sys}
+          {#if (libraryBySystem[sys] || []).length > 0}
+            <details class="library-system-section" open>
+              <summary class="library-system-header">
+                <span>{systemDisplayNames[sys]} ({countBySystem[sys]} ROM{(countBySystem[sys] || 0) !== 1 ? 's' : ''})</span>
+                <svg class="header-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="library-system-list">
+                {#each libraryBySystem[sys] || [] as rom}
+                  <div class="library-rom-item" role="button" on:click={() => onLoadRom(rom.id)}>
+                    <div class="library-rom-thumbnail">
+                      {#if getRomThumbnail(rom)}
+                        <img
+                          src={getRomThumbnail(rom)}
+                          alt=""
+                          on:error={(e) => {
+                            e.target.style.display = 'none';
+                            const fallback = e.target.nextElementSibling;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      {/if}
+                      <div
+                        class="library-rom-thumbnail-fallback"
+                        style="display: {getRomThumbnail(rom) ? 'none' : 'flex'}"
+                        aria-hidden="true"
+                      >
+                        {#if getRomFallbackIcon(rom)}
+                          {@html getRomFallbackIcon(rom)}
+                        {:else}
+                          <span class="library-rom-thumbnail-placeholder">{rom.system.substring(0,2).toUpperCase()}</span>
+                        {/if}
+                      </div>
+                    </div>
+                    <div class="library-rom-info"><div class="library-rom-name">{rom.name}</div></div>
+                    <button
+                      class="remove-btn"
+                      aria-label="Remove from library"
+                      title="Remove from library"
+                      on:click|stopPropagation={(e) => handleRemoveRom(rom, e)}
+                    >Remove</button>
+                  </div>
+                {/each}
+              </div>
+            </details>
+          {/if}
+        {/each}
+      {/if}
+    </div>
+  </div>
+</div>
