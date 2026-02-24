@@ -618,6 +618,13 @@
       position: relative;
       z-index: 5;
     }
+    .app-container.theater-mode .main-area {
+      z-index: 1200;
+      overflow: visible;
+    }
+    .app-container.theater-mode .main-logo {
+      opacity: 0.08 !important;
+    }
     .main-area.emulator-active > * {
       min-height: 0;
     }
@@ -700,6 +707,30 @@
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
         inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
+    .gameplay-view {
+      position: relative;
+    }
+    .theater-overlay {
+      position: fixed;
+      inset: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(6px);
+      cursor: pointer;
+      z-index: 1400;
+    }
+    .main-view.theater-mode .game-container {
+      z-index: 1500;
+      border-color: var(--accent-primary);
+      border-style: solid;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+    }
+    .main-view.theater-mode .game-frame {
+      border-color: var(--accent-primary);
+      border-style: solid;
+    }
 
     .game-container::before {
       content: '';
@@ -762,15 +793,6 @@
       border-radius: 0;
     }
 
-    #gameCanvas {
-      display: block;
-      background: #000;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-      max-width: 100%;
-      max-height: 100%;
-    }
-
     .game-frame::before {
       content: '';
       position: absolute;
@@ -809,44 +831,6 @@
       background: var(--bg-secondary);
       border-radius: 0;
       border: 1px dotted var(--border-dot);
-    }
-
-    .control-btn {
-      font-family: var(--font-display);
-      font-weight: 400;
-      font-size: 13px;
-      padding: 8px 14px;
-      background: var(--bg-tertiary);
-      border: 1px dotted var(--border-dot);
-      color: var(--text-primary);
-      cursor: pointer;
-      border-radius: 0;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .control-btn:hover {
-      background: var(--accent-primary);
-      border-color: var(--accent-primary);
-      border-style: solid;
-      color: #000;
-      transform: translateY(-1px);
-    }
-
-    .control-btn.active {
-      background: var(--accent-primary);
-      color: #000;
-      border: 1px solid var(--accent-primary);
-    }
-
-    .keyboard-hint {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-left: auto;
     }
 
     .press-start {
@@ -944,49 +928,6 @@
         inset 0 0 30px rgba(255, 0, 128, 0.1);
     }
 
-    .game-over.show {
-      display: block;
-      animation: bootUp 0.3s ease;
-    }
-
-    .game-over h2 {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 32px;
-      background: linear-gradient(90deg, var(--rainbow-1), var(--rainbow-7));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 12px;
-      animation: rgbSplit 1s infinite;
-    }
-
-    .game-over p {
-      font-size: 16px;
-      margin-bottom: 16px;
-      color: var(--text-primary);
-    }
-
-    .restart-btn {
-      font-family: var(--font-display);
-      font-weight: 600;
-      font-size: 12px;
-      padding: 10px 24px;
-      background: transparent;
-      border: 2px solid var(--rainbow-4);
-      color: var(--rainbow-4);
-      cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    .restart-btn:hover {
-      background: var(--rainbow-4);
-      color: #000;
-      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
-    }
-
     .new-high-score {
       display: inline-block;
       margin-bottom: 16px;
@@ -1025,6 +966,16 @@
       border-color: var(--accent-primary);
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .control-btn:disabled,
+    .control-btn:disabled:hover {
+      opacity: 0.45;
+      cursor: not-allowed;
+      border-color: var(--border-subtle);
+      background: var(--bg-card);
+      transform: none;
+      box-shadow: none;
     }
 
     .control-btn.active {
@@ -1156,41 +1107,12 @@
       }
     }
 
-    .overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(8px);
-      z-index: 998;
-      display: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .overlay.show {
-      display: block;
-      opacity: 1;
-    }
-
-    .game-over {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      z-index: 20;
-      display: none;
-    }
-
     .game-over.show {
       display: block;
-      animation: fadeIn 0.3s ease;
+      animation: gameOverFadeIn 0.3s ease;
     }
 
-    @keyframes fadeIn {
+    @keyframes gameOverFadeIn {
       from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
       to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     }

@@ -15,11 +15,22 @@
   import { runGame } from '$lib/games/gameRunner.js';
   import { nativeResolutions } from '$lib/config/systems.js';
   import { saveSettings } from '$lib/services/storage.js';
+  import {
+    emptyEmulatorCapabilities,
+    getEmulatorCapabilities,
+    loadEmulatorState,
+    openEmulatorMenu,
+    resetEmulator,
+    saveEmulatorState,
+    setEmulatorPaused,
+    setEmulatorVolume
+  } from '$lib/services/emulator.js';
 
   export let showView = (v) => {};
 
   let canvasEl = null;
-  let gameLoopId = null;
+  let crtFrameEl = null;
+  let emulatorEl = null;
   let gameOver = false;
   let showPressStart = true;
   let showGameOver = false;
@@ -34,6 +45,10 @@
   let showControlsGuide = false;
   let isEmulatorRunning = false;
   let currentRomSystem = null; // e.g. 'gba', 'nes' when ROM is running
+  let theaterMode = false;
+  let onGlobalKeydown = null;
+  let emulatorCapabilities = emptyEmulatorCapabilities;
+  let emulatorCapabilityPoll = null;
 
   const BUILTIN_IDS = ['pong', 'snake', 'breakout'];
 
@@ -45,40 +60,37 @@
   }
 
   function applyResolution() {
-    const crtFrame = document.getElementById('crtFrame');
-    const gameCanvas = document.getElementById('gameCanvas');
-    const emulator = document.getElementById('emulator');
-    if (!crtFrame) return;
+    if (!crtFrameEl) return;
 
     if (showEmulator && currentRomSystem) {
       const size = getResolutionSize(currentRomSystem);
-      if (size && emulator) {
-        emulator.style.width = size.width + 'px';
-        emulator.style.height = size.height + 'px';
-        emulator.style.maxWidth = size.width + 'px';
-        emulator.style.maxHeight = size.height + 'px';
-        crtFrame.style.maxWidth = size.width + 'px';
-        crtFrame.style.maxHeight = size.height + 'px';
-      } else if (emulator) {
-        emulator.style.width = '100%';
-        emulator.style.height = '100%';
-        emulator.style.maxWidth = '100%';
-        emulator.style.maxHeight = '100%';
-        crtFrame.style.maxWidth = '100%';
-        crtFrame.style.maxHeight = '100%';
+      if (size && emulatorEl) {
+        emulatorEl.style.width = size.width + 'px';
+        emulatorEl.style.height = size.height + 'px';
+        emulatorEl.style.maxWidth = size.width + 'px';
+        emulatorEl.style.maxHeight = size.height + 'px';
+        crtFrameEl.style.maxWidth = size.width + 'px';
+        crtFrameEl.style.maxHeight = size.height + 'px';
+      } else if (emulatorEl) {
+        emulatorEl.style.width = '100%';
+        emulatorEl.style.height = '100%';
+        emulatorEl.style.maxWidth = '100%';
+        emulatorEl.style.maxHeight = '100%';
+        crtFrameEl.style.maxWidth = '100%';
+        crtFrameEl.style.maxHeight = '100%';
       }
     } else {
       const size = getResolutionSize('builtin');
-      if (gameCanvas) {
-        gameCanvas.width = 640;
-        gameCanvas.height = 480;
+      if (canvasEl) {
+        canvasEl.width = 640;
+        canvasEl.height = 480;
       }
-      if (size && crtFrame) {
-        crtFrame.style.maxWidth = size.width + 'px';
-        crtFrame.style.maxHeight = size.height + 'px';
-      } else if (crtFrame) {
-        crtFrame.style.maxWidth = '100%';
-        crtFrame.style.maxHeight = '100%';
+      if (size) {
+        crtFrameEl.style.maxWidth = size.width + 'px';
+        crtFrameEl.style.maxHeight = size.height + 'px';
+      } else {
+        crtFrameEl.style.maxWidth = '100%';
+        crtFrameEl.style.maxHeight = '100%';
       }
     }
   }
@@ -88,9 +100,15 @@
   $: if ($currentGame && BUILTIN_IDS.includes($currentGame)) {
     showEmulator = false;
     currentRomSystem = null;
+    isEmulatorRunning = false;
+    emulatorCapabilities = emptyEmulatorCapabilities;
   }
 
   $: if (gameInfo) gameTitle = gameInfo.name;
+  $: keyboardHint =
+    $currentGame === 'breakout'
+      ? 'Press SPACE to launch'
+      : `Press SPACE to ${$isPaused ? 'start' : 'pause'}`;
 
   const CONTROL_GUIDES = {
     pong: [
@@ -113,7 +131,18 @@
     showControlsGuide = (settings.showHints ?? true) && !!$currentGame;
   }
 
+  function refreshEmulatorCapabilities() {
+    emulatorCapabilities = showEmulator ? getEmulatorCapabilities() : emptyEmulatorCapabilities;
+  }
+
   function togglePause() {
+    if (showEmulator) {
+      const next = !$isPaused;
+      if (!setEmulatorPaused(next)) return;
+      isPaused.set(next);
+      refreshEmulatorCapabilities();
+      return;
+    }
     let next = false;
     isPaused.update((p) => {
       next = !p;
@@ -125,23 +154,71 @@
   function toggleSound() {
     soundOn = !soundOn;
     setSoundEnabled(soundOn);
+    if (showEmulator) {
+      setEmulatorVolume(soundOn ? 1 : 0);
+      refreshEmulatorCapabilities();
+    }
     const settings = getSettings();
     settings.soundEnabled = soundOn;
-    import('$lib/services/storage.js').then(({ saveSettings }) => saveSettings(settings));
+    saveSettings(settings);
     if (soundOn) initAudio();
   }
 
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
+  function handleEmulatorReset() {
+    if (!resetEmulator()) {
+      romInfo = 'Reset control unavailable for this emulator core.';
+      return;
+    }
+    isPaused.set(false);
+    refreshEmulatorCapabilities();
+  }
+
+  function handleEmulatorSaveState() {
+    if (!saveEmulatorState(0)) {
+      romInfo = 'Save state is unavailable for this emulator core.';
+      return;
+    }
+    romInfo = 'Saved state slot 1';
+    refreshEmulatorCapabilities();
+  }
+
+  function handleEmulatorLoadState() {
+    if (!loadEmulatorState(0)) {
+      romInfo = 'Load state is unavailable for this emulator core.';
+      return;
+    }
+    romInfo = 'Loaded state slot 1';
+    isPaused.set(false);
+    refreshEmulatorCapabilities();
+  }
+
+  function handleEmulatorMenu() {
+    if (!openEmulatorMenu()) {
+      romInfo = 'Emulator menu could not be opened.';
+      return;
+    }
+    refreshEmulatorCapabilities();
+  }
+
+  function syncTheaterClass() {
+    const appRoot = document.querySelector('.app-container');
+    if (appRoot) appRoot.classList.toggle('theater-mode', theaterMode);
+  }
+
+  function closeTheaterMode() {
+    if (!theaterMode) return;
+    theaterMode = false;
+    syncTheaterClass();
+  }
+
+  function toggleTheaterMode() {
+    theaterMode = !theaterMode;
+    syncTheaterClass();
   }
 
   function exitGame() {
+    closeTheaterMode();
     stopGameAudio();
-    if (gameLoopId) {
-      cancelAnimationFrame(gameLoopId);
-      gameLoopId = null;
-    }
     window.__stopEmulator?.();
     currentGame.set(null);
     isPaused.set(true);
@@ -149,6 +226,8 @@
     showPressStart = true;
     showGameOver = false;
     showEmulator = false;
+    isEmulatorRunning = false;
+    emulatorCapabilities = emptyEmulatorCapabilities;
     currentRomSystem = null;
     showView($previousView ?? 'home');
   }
@@ -195,6 +274,15 @@
   }
 
   $: resolution, showEmulator, currentRomSystem, $currentGame, applyResolution();
+  $: if (showEmulator) {
+    refreshEmulatorCapabilities();
+    if (!emulatorCapabilityPoll) {
+      emulatorCapabilityPoll = setInterval(refreshEmulatorCapabilities, 1000);
+    }
+  } else if (emulatorCapabilityPoll) {
+    clearInterval(emulatorCapabilityPoll);
+    emulatorCapabilityPoll = null;
+  }
 
   onMount(() => {
     const settings = getSettings();
@@ -210,13 +298,23 @@
       setGameTitle: (text) => (gameTitle = text),
       setShowEmulator: (v) => {
         showEmulator = v;
-        if (!v) currentRomSystem = null;
+        isPaused.set(!v);
+        if (!v) {
+          currentRomSystem = null;
+          isEmulatorRunning = false;
+          emulatorCapabilities = emptyEmulatorCapabilities;
+        }
+        refreshEmulatorCapabilities();
       },
       setShowPressStart: (v) => (showPressStart = v),
       setCurrentRomSystem: (sys) => (currentRomSystem = sys),
       showGameOverOverlay,
       updateControlsGuide,
-      setEmulatorRunning: (v) => (isEmulatorRunning = v),
+      setEmulatorRunning: (v) => {
+        isEmulatorRunning = v;
+        refreshEmulatorCapabilities();
+      },
+      refreshEmulatorCapabilities,
       applyResolution
     };
     window.__playViewReady = () => api;
@@ -227,12 +325,29 @@
       if (gameLoopCleanup) gameLoopCleanup();
       gameLoopCleanup = null;
     };
+    onGlobalKeydown = (e) => {
+      if (e.key === 'Escape' && theaterMode) {
+        e.preventDefault();
+        closeTheaterMode();
+      }
+    };
+    document.addEventListener('keydown', onGlobalKeydown);
+    refreshEmulatorCapabilities();
   });
 
   onDestroy(() => {
+    closeTheaterMode();
     if (gameLoopCleanup) gameLoopCleanup();
     gameLoopCleanup = null;
     stopGameAudio();
+    if (onGlobalKeydown) {
+      document.removeEventListener('keydown', onGlobalKeydown);
+      onGlobalKeydown = null;
+    }
+    if (emulatorCapabilityPoll) {
+      clearInterval(emulatorCapabilityPoll);
+      emulatorCapabilityPoll = null;
+    }
     window.__stopEmulator?.();
     window.__playViewReady = null;
     window.__togglePause = null;
@@ -240,7 +355,15 @@
   });
 </script>
 
-<div class="main-view" style="display: flex; flex-direction: column; flex: 1;">
+<div class="main-view gameplay-view" class:theater-mode={theaterMode} style="display: flex; flex-direction: column; flex: 1;">
+  {#if theaterMode}
+    <button
+      type="button"
+      class="theater-overlay"
+      aria-label="Exit theater mode"
+      on:click={closeTheaterMode}
+    ></button>
+  {/if}
   <div class="game-header">
     <h1 class="game-title">{gameTitle}</h1>
     <div class="score-display">SCORE<span>{$score}</span></div>
@@ -250,7 +373,7 @@
   </div>
   <div class="game-container">
     <div class="scanline-effect"></div>
-    <div class="game-frame" id="crtFrame">
+    <div class="game-frame" id="crtFrame" bind:this={crtFrameEl}>
       <canvas
         bind:this={canvasEl}
         id="gameCanvas"
@@ -277,7 +400,7 @@
         style="display: {showEmulator ? 'flex' : 'none'}"
         bind:this={emulatorContainerEl}
       >
-        <div id="emulator"></div>
+        <div id="emulator" bind:this={emulatorEl}></div>
       </div>
     </div>
   </div>
@@ -297,13 +420,53 @@
       </svg>
       <span>Sound {soundOn ? 'On' : 'Off'}</span>
     </button>
-    <button class="control-btn" on:click={toggleFullscreen} aria-label="Toggle fullscreen">
+    {#if showEmulator}
+      <button
+        class="control-btn"
+        on:click={handleEmulatorReset}
+        aria-label="Reset emulator game"
+        disabled={!emulatorCapabilities.canReset}
+      >
+        Reset
+      </button>
+      <button
+        class="control-btn"
+        on:click={handleEmulatorSaveState}
+        aria-label="Save state slot one"
+        disabled={!emulatorCapabilities.canSaveState}
+      >
+        Save
+      </button>
+      <button
+        class="control-btn"
+        on:click={handleEmulatorLoadState}
+        aria-label="Load state slot one"
+        disabled={!emulatorCapabilities.canLoadState}
+      >
+        Load
+      </button>
+      <button
+        class="control-btn"
+        on:click={handleEmulatorMenu}
+        aria-label="Open emulator controls menu"
+        disabled={!emulatorCapabilities.canOpenMenu}
+      >
+        Menu
+      </button>
+    {/if}
+    <button
+      class="control-btn"
+      class:active={theaterMode}
+      on:click={toggleTheaterMode}
+      aria-label="Toggle theater mode"
+      aria-pressed={theaterMode}
+    >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path
           d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
         />
       </svg>
-      Fullscreen
+      Theater {theaterMode ? 'On' : 'Off'}
     </button>
     <button class="control-btn" on:click={exitGame} aria-label="Exit to menu">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -328,7 +491,7 @@
       <option value="3x">3x</option>
       <option value="4x">4x</option>
     </select>
-    <span class="keyboard-hint">Press SPACE to {$isPaused ? 'start' : 'pause'}</span>
+    <span class="keyboard-hint">{keyboardHint}</span>
   </div>
   {#if showControlsGuide && $currentGame}
     <div class="controls-guide show">

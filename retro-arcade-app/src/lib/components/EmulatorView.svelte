@@ -9,20 +9,19 @@
   export let onOpenRomDialog = (system) => {};
   export let onLoadRom = (id) => {};
 
-  function getRomThumbnail(rom) {
-    return getThumbnailUrl(rom.name, rom.system);
-  }
-
-  function getRomFallbackIcon(rom) {
-    return systemIcons[rom.system] || null;
-  }
-
   async function handleRemoveRom(rom, e) {
     e?.stopPropagation?.();
     const ok = await showConfirm(`Remove "${rom.name}" from library?`);
     if (ok) {
       await removeFromRomLibrary(rom.id);
       romLibrary.refresh();
+    }
+  }
+
+  function handleActivateKey(e, fn) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fn();
     }
   }
 
@@ -40,7 +39,15 @@
     const lib = $romLibrary;
     const by = {};
     systemOrder.forEach(s => { by[s] = []; });
-    lib.forEach(r => { if (by[r.system]) by[r.system].push(r); });
+    lib.forEach((r) => {
+      if (by[r.system]) {
+        by[r.system].push({
+          ...r,
+          thumbnail: getThumbnailUrl(r.name, r.system),
+          fallbackIcon: systemIcons[r.system] || null
+        });
+      }
+    });
     systemOrder.forEach(s => { by[s] = by[s].sort((a,b) => (b.lastPlayed||0) - (a.lastPlayed||0)); });
     libraryBySystem = by;
   }
@@ -52,7 +59,13 @@
     <div class="section-title" style="margin-bottom: 12px">Systems</div>
     <div class="system-cards-grid">
       {#each systemOrder as sys}
-        <div class="system-card" role="button" on:click={() => onOpenRomDialog(sys)}>
+        <div
+          class="system-card"
+          role="button"
+          tabindex="0"
+          on:click={() => onOpenRomDialog(sys)}
+          on:keydown={(e) => handleActivateKey(e, () => onOpenRomDialog(sys))}
+        >
           <div class="system-card-icon">{@html systemIcons[sys] || ''}</div>
           <div class="system-card-name">{systemDisplayNames[sys] || sys.toUpperCase()}</div>
           <div class="system-card-count">{countBySystem[sys] || 0} ROM{(countBySystem[sys] || 0) !== 1 ? 's' : ''}</div>
@@ -75,11 +88,17 @@
               </summary>
               <div class="library-system-list">
                 {#each libraryBySystem[sys] || [] as rom}
-                  <div class="library-rom-item" role="button" on:click={() => onLoadRom(rom.id)}>
+                  <div
+                    class="library-rom-item"
+                    role="button"
+                    tabindex="0"
+                    on:click={() => onLoadRom(rom.id)}
+                    on:keydown={(e) => handleActivateKey(e, () => onLoadRom(rom.id))}
+                  >
                     <div class="library-rom-thumbnail">
-                      {#if getRomThumbnail(rom)}
+                      {#if rom.thumbnail}
                         <img
-                          src={getRomThumbnail(rom)}
+                          src={rom.thumbnail}
                           alt=""
                           on:error={(e) => {
                             e.target.style.display = 'none';
@@ -90,11 +109,11 @@
                       {/if}
                       <div
                         class="library-rom-thumbnail-fallback"
-                        style="display: {getRomThumbnail(rom) ? 'none' : 'flex'}"
+                        style="display: {rom.thumbnail ? 'none' : 'flex'}"
                         aria-hidden="true"
                       >
-                        {#if getRomFallbackIcon(rom)}
-                          {@html getRomFallbackIcon(rom)}
+                        {#if rom.fallbackIcon}
+                          {@html rom.fallbackIcon}
                         {:else}
                           <span class="library-rom-thumbnail-placeholder">{rom.system.substring(0,2).toUpperCase()}</span>
                         {/if}

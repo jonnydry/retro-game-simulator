@@ -15,15 +15,13 @@
 
   let myGamesExpanded = false;
 
-  $: recentRoms = [...$romLibrary].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
-
-  function getRomThumbnail(rom) {
-    return getThumbnailUrl(rom.name, rom.system);
-  }
-
-  function getRomFallbackIcon(rom) {
-    return systemIcons[rom.system] || null;
-  }
+  $: recentRoms = [...$romLibrary]
+    .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0))
+    .map((rom) => ({
+      ...rom,
+      thumbnail: getThumbnailUrl(rom.name, rom.system),
+      fallbackIcon: systemIcons[rom.system] || null
+    }));
 
   function showView(view) {
     previousView.set($currentView);
@@ -51,6 +49,13 @@
     if (ok) {
       await removeFromRomLibrary(rom.id);
       romLibrary.refresh();
+    }
+  }
+
+  function handleActivateKey(e, fn) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fn();
     }
   }
 
@@ -83,7 +88,13 @@
     </button>
     <div class="game-list" class:collapsed={!myGamesExpanded}>
       {#each BUILTIN_GAMES as game}
-        <div class="game-card" role="button" tabindex="0" on:click={() => onLoadGame(game.id)}>
+        <div
+          class="game-card"
+          role="button"
+          tabindex="0"
+          on:click={() => onLoadGame(game.id)}
+          on:keydown={(e) => handleActivateKey(e, () => onLoadGame(game.id))}
+        >
           <div class="game-icon">{game.icon}</div>
           <div class="game-info">
             <h3>{game.name}</h3>
@@ -98,11 +109,17 @@
         <p class="library-empty-hint" style="color:var(--text-muted);font-size:11px;padding:8px 0">No ROMs yet</p>
       {:else}
         {#each recentRoms as rom}
-          <div class="sidebar-rom-item" role="button" on:click={() => onLoadRom(rom.id)}>
+          <div
+            class="sidebar-rom-item"
+            role="button"
+            tabindex="0"
+            on:click={() => onLoadRom(rom.id)}
+            on:keydown={(e) => handleActivateKey(e, () => onLoadRom(rom.id))}
+          >
             <div class="rom-thumbnail">
-              {#if getRomThumbnail(rom)}
+              {#if rom.thumbnail}
                 <img
-                  src={getRomThumbnail(rom)}
+                  src={rom.thumbnail}
                   alt=""
                   on:error={(e) => {
                     e.target.style.display = 'none';
@@ -113,11 +130,11 @@
               {/if}
               <div
                 class="rom-thumbnail-fallback"
-                style="display: {getRomThumbnail(rom) ? 'none' : 'flex'}"
+                style="display: {rom.thumbnail ? 'none' : 'flex'}"
                 aria-hidden="true"
               >
-                {#if getRomFallbackIcon(rom)}
-                  {@html getRomFallbackIcon(rom)}
+                {#if rom.fallbackIcon}
+                  {@html rom.fallbackIcon}
                 {:else}
                   <span class="rom-thumbnail-placeholder">🎮</span>
                 {/if}

@@ -10,37 +10,102 @@ const app = mount(App, {
 })
 
 const keyboardKeys = {}
+const gamepadState = {
+  ArrowUp: false,
+  ArrowDown: false,
+  ArrowLeft: false,
+  ArrowRight: false,
+  Space: false
+}
+let publishedKeys = {}
 let _currentGame, _currentView, _isPaused
 currentGame.subscribe((v) => (_currentGame = v))
 currentView.subscribe((v) => (_currentView = v))
 isPaused.subscribe((v) => (_isPaused = v))
 
+function isEditableTarget(target) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName))
+  )
+}
+
+function sameKeySet(a, b) {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (!b[key]) return false
+  }
+  return true
+}
+
+function buildMergedKeys() {
+  const merged = {}
+  for (const [key, isPressed] of Object.entries(keyboardKeys)) {
+    if (isPressed) merged[key] = true
+  }
+  if (gamepadState.ArrowUp) merged.ArrowUp = true
+  if (gamepadState.ArrowDown) merged.ArrowDown = true
+  if (gamepadState.ArrowLeft) merged.ArrowLeft = true
+  if (gamepadState.ArrowRight) merged.ArrowRight = true
+  if (gamepadState.Space) {
+    merged[' '] = true
+    merged.Space = true
+  }
+  return merged
+}
+
+function publishKeysIfChanged() {
+  const next = buildMergedKeys()
+  if (sameKeySet(next, publishedKeys)) return
+  publishedKeys = next
+  keys.set(next)
+}
+
+function clearKeyboardState() {
+  for (const key of Object.keys(keyboardKeys)) {
+    keyboardKeys[key] = false
+  }
+  publishKeysIfChanged()
+}
+
 document.addEventListener('keydown', (e) => {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Space'].includes(e.key)) {
+  const inPlayView = _currentView === 'play'
+  const editable = isEditableTarget(e.target)
+  if (
+    inPlayView &&
+    !editable &&
+    ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Space'].includes(e.key)
+  ) {
     e.preventDefault()
   }
-  if (e.key === ' ' || e.key === 'Space') {
+  if (editable) return
+
+  if ((e.key === ' ' || e.key === 'Space') && !e.repeat) {
     const builtin = ['pong', 'snake', 'breakout'].includes(_currentGame)
-    if (_currentView === 'play' && builtin && (_isPaused || document.querySelector('.press-start.show'))) {
+    const breakoutRunning = _currentGame === 'breakout' && !_isPaused && !document.querySelector('.press-start.show')
+    if (_currentView === 'play' && builtin && !breakoutRunning) {
       window.__togglePause?.()
     }
   }
   const key = e.key === 'Space' ? ' ' : e.key
   keyboardKeys[e.key] = true
   keyboardKeys[key] = true
-  keys.update((k) => ({ ...k, [e.key]: true, [key]: true }))
+  if (key === ' ') keyboardKeys.Space = true
+  publishKeysIfChanged()
 })
 
 document.addEventListener('keyup', (e) => {
   const key = e.key === 'Space' ? ' ' : e.key
   keyboardKeys[e.key] = false
   keyboardKeys[key] = false
-  keys.update((k) => {
-    const next = { ...k }
-    delete next[e.key]
-    delete next[key]
-    return next
-  })
+  if (key === ' ') keyboardKeys.Space = false
+  publishKeysIfChanged()
+})
+
+window.addEventListener('blur', () => {
+  clearKeyboardState()
 })
 
 const GAMEPAD_DEADZONE = 0.15
@@ -60,14 +125,19 @@ function pollGamepads() {
     right = right || (buttons[15]?.pressed) || (axes[0] > GAMEPAD_DEADZONE)
     action = action || buttons[0]?.pressed || buttons[1]?.pressed || buttons[2]?.pressed || buttons[3]?.pressed || buttons[9]?.pressed
   }
-  keys.update((k) => ({
-    ...k,
-    ArrowUp: keyboardKeys['ArrowUp'] || up,
-    ArrowDown: keyboardKeys['ArrowDown'] || down,
-    ArrowLeft: keyboardKeys['ArrowLeft'] || left,
-    ArrowRight: keyboardKeys['ArrowRight'] || right,
-    ' ': keyboardKeys[' '] || keyboardKeys['Space'] || action
-  }))
+  const changed =
+    gamepadState.ArrowUp !== up ||
+    gamepadState.ArrowDown !== down ||
+    gamepadState.ArrowLeft !== left ||
+    gamepadState.ArrowRight !== right ||
+    gamepadState.Space !== action
+  if (!changed) return
+  gamepadState.ArrowUp = up
+  gamepadState.ArrowDown = down
+  gamepadState.ArrowLeft = left
+  gamepadState.ArrowRight = right
+  gamepadState.Space = action
+  publishKeysIfChanged()
 }
 
 window.addEventListener('gamepadconnected', () => {

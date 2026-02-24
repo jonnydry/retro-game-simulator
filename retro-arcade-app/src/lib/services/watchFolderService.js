@@ -6,9 +6,12 @@ const DB_NAME = 'RetroArcadeWatch';
 const DB_VERSION = 1;
 const STORE_NAME = 'folders';
 const POLL_INTERVAL_MS = 30000; // 30 seconds
+const POLL_MAX_INTERVAL_MS = 300000; // 5 minutes
 
-let pollTimer = null;
+let pollTimeout = null;
+let pollDelayMs = POLL_INTERVAL_MS;
 let isWatching = false;
+let pollInFlight = null;
 
 export function isSupported() {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window && 'FileSystemDirectoryHandle' in window;
@@ -179,31 +182,71 @@ async function pollAllFolders() {
   return totalAdded;
 }
 
+async function pollAllFoldersOnce() {
+  if (pollInFlight) return pollInFlight;
+  pollInFlight = (async () => {
+    try {
+      return await pollAllFolders();
+    } finally {
+      pollInFlight = null;
+    }
+  })();
+  return pollInFlight;
+}
+
+function scheduleNextPoll() {
+  if (!isWatching) return;
+  if (pollTimeout) {
+    clearTimeout(pollTimeout);
+    pollTimeout = null;
+  }
+  pollTimeout = setTimeout(() => {
+    void runPollingCycle();
+  }, pollDelayMs);
+}
+
+async function runPollingCycle() {
+  try {
+    const added = await pollAllFoldersOnce();
+    pollDelayMs = added > 0 ? POLL_INTERVAL_MS : Math.min(POLL_MAX_INTERVAL_MS, pollDelayMs * 2);
+  } catch (err) {
+    pollDelayMs = POLL_INTERVAL_MS;
+  } finally {
+    scheduleNextPoll();
+  }
+}
+
 export function startWatching(enabled) {
   if (!isSupported()) return;
 
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
+  if (pollTimeout) {
+    clearTimeout(pollTimeout);
+    pollTimeout = null;
   }
+  pollDelayMs = POLL_INTERVAL_MS;
   isWatching = false;
 
   if (enabled) {
     isWatching = true;
-    pollAllFolders();
-    pollTimer = setInterval(pollAllFolders, POLL_INTERVAL_MS);
+    void runPollingCycle();
   }
 }
 
 export function stopWatching() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
+  if (pollTimeout) {
+    clearTimeout(pollTimeout);
+    pollTimeout = null;
   }
+  pollDelayMs = POLL_INTERVAL_MS;
   isWatching = false;
 }
 
 export async function scanNow() {
   if (!isSupported()) return 0;
-  return pollAllFolders();
+  const added = await pollAllFoldersOnce();
+  if (isWatching) {
+    pollDelayMs = POLL_INTERVAL_MS;
+    scheduleNextPoll();
+  }
+  return added;
 }

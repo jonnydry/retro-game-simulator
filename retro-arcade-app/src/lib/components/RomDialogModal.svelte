@@ -40,10 +40,24 @@
     onRun(selectedSystem);
     onClose();
   }
+
+  function handleBackdropKeydown(e) {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+    }
+  }
 </script>
 
 <div class="dialog-modal show" role="dialog" aria-modal="true">
-  <div class="dialog-backdrop" on:click={onClose}></div>
+  <div
+    class="dialog-backdrop"
+    role="button"
+    tabindex="0"
+    aria-label="Close ROM dialog"
+    on:click={onClose}
+    on:keydown={handleBackdropKeydown}
+  ></div>
   <div class="dialog-panel" style="min-width: 320px">
     <h2 class="dialog-title">Import or Run ROM</h2>
     <div style="margin: 16px 0">

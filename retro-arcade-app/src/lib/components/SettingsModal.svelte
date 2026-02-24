@@ -1,6 +1,7 @@
 <script>
   import { getSettings, saveSettings, getSavedData, saveData } from '$lib/services/storage.js';
-  import { setSoundEnabled, isSoundEnabled, initAudio } from '$lib/services/audio.js';
+  import { setSoundEnabled, initAudio } from '$lib/services/audio.js';
+  import { showConfirm } from '$lib/services/dialog.js';
   import {
     isSupported,
     getWatchedFolders,
@@ -102,13 +103,19 @@
   }
 
   async function clearHighScores() {
-    const { showConfirm } = await import('$lib/services/dialog.js');
     const ok = await showConfirm('Clear all high scores?');
     if (ok) {
       const data = getSavedData();
       data.highScores = {};
       saveData(data);
       updateHighScoresList();
+    }
+  }
+
+  function handleBackdropKeydown(e) {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+      e.preventDefault();
+      close();
     }
   }
 
@@ -119,7 +126,14 @@
 
 {#if showSettings}
   <div class="settings-modal show" role="dialog" aria-modal="true">
-    <div class="settings-backdrop" on:click={close}></div>
+    <div
+      class="settings-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close settings"
+      on:click={close}
+      on:keydown={handleBackdropKeydown}
+    ></div>
     <div class="settings-panel">
       <div class="settings-header">
         <h2>Settings</h2>

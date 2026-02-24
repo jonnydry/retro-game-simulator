@@ -10,9 +10,14 @@
   import DialogModal from '$lib/components/DialogModal.svelte';
   import RomDialogModal from '$lib/components/RomDialogModal.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
-  import { loadRomFromLibrary, stopEmulator } from '$lib/services/emulator.js';
+  import {
+    loadRomFromLibrary,
+    loadRomFromFile,
+    stopEmulator,
+    systemExtensions
+  } from '$lib/services/emulator.js';
   import { stopGameAudio } from '$lib/services/audio.js';
-  import { getSettings } from '$lib/services/storage.js';
+  import { getSettings, getRomFromLibrary } from '$lib/services/storage.js';
   import { initRomStorage } from '$lib/services/romStorage.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
   import { startWatching } from '$lib/services/watchFolderService.js';
@@ -22,6 +27,7 @@
   let romFileInput = null;
   let pendingRomPick = { system: '', mode: 'import' };
   let storageReady = false;
+  const romAccept = [...new Set(Object.values(systemExtensions).flat())].join(',');
 
   function showView(view) {
     previousView.set($currentView);
@@ -50,21 +56,42 @@
       };
       setTimeout(check, 0);
     });
-    const { getRomFromLibrary } = await import('$lib/services/storage.js');
     const rom = getRomFromLibrary(id);
     const romName = rom?.name || 'ROM';
     playViewApi?.setGameTitle?.(romName);
     playViewApi?.setCurrentRomSystem?.(rom?.system);
-    await loadRomFromLibrary(id, {
-      onGameStart: () => playViewApi?.setRomInfo?.(`Playing: ${romName}`),
+    playViewApi?.setEmulatorRunning?.(false);
+    playViewApi?.refreshEmulatorCapabilities?.();
+    const loaded = await loadRomFromLibrary(id, {
+      onGameStart: () => {
+        playViewApi?.setRomInfo?.(`Playing: ${romName}`);
+        playViewApi?.setEmulatorRunning?.(true);
+        playViewApi?.refreshEmulatorCapabilities?.();
+      },
       onReady: () => {
         playViewApi?.setRomInfo?.(`Ready: ${romName}`);
+        playViewApi?.setEmulatorRunning?.(true);
+        playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
       },
-      onError: (msg) => playViewApi?.setRomInfo?.(msg || 'Error')
+      onError: (msg) => {
+        playViewApi?.setRomInfo?.(msg || 'Error');
+        playViewApi?.setEmulatorRunning?.(false);
+        playViewApi?.refreshEmulatorCapabilities?.();
+      }
     });
+    if (!loaded) {
+      playViewApi?.setEmulatorRunning?.(false);
+      playViewApi?.refreshEmulatorCapabilities?.();
+      playViewApi?.setShowEmulator?.(false);
+      playViewApi?.setShowPressStart?.(true);
+      showView('emulator');
+      return;
+    }
     playViewApi?.setShowEmulator?.(true);
     playViewApi?.setShowPressStart?.(false);
+    playViewApi?.setEmulatorRunning?.(true);
+    playViewApi?.refreshEmulatorCapabilities?.();
     playViewApi?.applyResolution?.();
   }
 
@@ -105,7 +132,6 @@
     if (!file) return;
     e.target.value = '';
     showView('play');
-    const { loadRomFromFile } = await import('$lib/services/emulator.js');
     const playViewApi = await new Promise((resolve) => {
       const check = () => {
         if (window.__playViewReady) {
@@ -117,17 +143,39 @@
       setTimeout(check, 0);
     });
     playViewApi?.setCurrentRomSystem?.(pendingRomPick.system);
-    await loadRomFromFile(file, pendingRomPick.system, pendingRomPick.mode, {
-      onGameStart: () => playViewApi?.setRomInfo?.(`Playing: ${file.name}`),
+    playViewApi?.setEmulatorRunning?.(false);
+    playViewApi?.refreshEmulatorCapabilities?.();
+    const loaded = await loadRomFromFile(file, pendingRomPick.system, pendingRomPick.mode, {
+      onGameStart: () => {
+        playViewApi?.setRomInfo?.(`Playing: ${file.name}`);
+        playViewApi?.setEmulatorRunning?.(true);
+        playViewApi?.refreshEmulatorCapabilities?.();
+      },
       onReady: () => {
         playViewApi?.setRomInfo?.(`Ready: ${file.name}`);
+        playViewApi?.setEmulatorRunning?.(true);
+        playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
       },
-      onError: (msg) => playViewApi?.setRomInfo?.(msg || 'Error')
+      onError: (msg) => {
+        playViewApi?.setRomInfo?.(msg || 'Error');
+        playViewApi?.setEmulatorRunning?.(false);
+        playViewApi?.refreshEmulatorCapabilities?.();
+      }
     });
+    if (!loaded) {
+      playViewApi?.setEmulatorRunning?.(false);
+      playViewApi?.refreshEmulatorCapabilities?.();
+      playViewApi?.setShowEmulator?.(false);
+      playViewApi?.setShowPressStart?.(true);
+      showView('emulator');
+      return;
+    }
     playViewApi?.setShowEmulator?.(true);
     playViewApi?.setGameTitle?.(file.name.replace(/\.[^/.]+$/, ''));
     playViewApi?.setShowPressStart?.(false);
+    playViewApi?.setEmulatorRunning?.(true);
+    playViewApi?.refreshEmulatorCapabilities?.();
     playViewApi?.applyResolution?.();
   }
 </script>
@@ -165,7 +213,7 @@
   bind:this={romFileInput}
   id="romUpload"
   class="rom-upload"
-  accept=".nes,.smc,.sfc,.gb,.gbc,.gba,.md,.gen,.bin,.n64,.z64,.iso,.bin,.cue,.zip"
+  accept={romAccept}
   style="display: none"
   on:change={handleRomFileChange}
 />

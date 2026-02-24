@@ -8,6 +8,15 @@ const MIGRATION_FLAG = 'retroArcade_romsMigrated';
 let metaCache = [];
 let db = null;
 
+function makeRomId(name, system) {
+  const key = `${system}|${name}`.toLowerCase();
+  let hash = 5381;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) + hash) ^ key.charCodeAt(i);
+  }
+  return `rom_${system}_${Math.abs(hash >>> 0).toString(36)}`;
+}
+
 export function isIndexedDBAvailable() {
   return typeof window !== 'undefined' && 'indexedDB' in window;
 }
@@ -160,14 +169,15 @@ export async function addToRomLibrary(name, system, blob) {
   if (!isIndexedDBAvailable()) {
     throw new Error('IndexedDB not available');
   }
+  const safeName = name.trim();
   const blobObj = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/octet-stream' });
   const database = db || (await openDB());
 
-  const existing = metaCache.find((r) => r.name === name && r.system === system);
-  const id = existing ? existing.id : 'rom_' + Date.now();
+  const existing = metaCache.find((r) => r.name === safeName && r.system === system);
+  const id = existing ? existing.id : makeRomId(safeName, system);
   const lastPlayed = Date.now();
 
-  const meta = { id, name, system, lastPlayed };
+  const meta = { id, name: safeName, system, lastPlayed };
 
   return new Promise((resolve, reject) => {
     const tx = database.transaction([META_STORE, BLOBS_STORE], 'readwrite');

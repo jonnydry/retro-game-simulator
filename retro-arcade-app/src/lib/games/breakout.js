@@ -36,21 +36,26 @@ export function initBreakout() {
     level: 1,
     score: 0,
     launched: false,
-    speed: 5
+    speed: 5,
+    lastMoveSoundAt: 0
   };
 }
 
-export function updateBreakout(state, ctx, canvas, getKeys, playSound) {
+export function updateBreakout(state, ctx, canvas, getKeys, playSound, timestamp = 0) {
   const b = state;
   const keys = getKeys();
+  const movingLeft = keys['ArrowLeft'];
+  const movingRight = keys['ArrowRight'];
 
-  if (keys['ArrowLeft']) {
+  if (movingLeft) {
     b.paddleX -= 7;
-    playSound('move');
   }
-  if (keys['ArrowRight']) {
+  if (movingRight) {
     b.paddleX += 7;
+  }
+  if ((movingLeft || movingRight) && timestamp - b.lastMoveSoundAt > 80) {
     playSound('move');
+    b.lastMoveSoundAt = timestamp;
   }
   b.paddleX = Math.max(0, Math.min(canvas.width - b.paddleWidth, b.paddleX));
 

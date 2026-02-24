@@ -5,11 +5,25 @@
     const state = $dialogState;
     if (state.resolve) state.resolve(result);
   }
+
+  function handleBackdropKeydown(e) {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+      e.preventDefault();
+      handleResolve(false);
+    }
+  }
 </script>
 
 {#if $dialogState.open}
   <div class="dialog-modal show" role="dialog" aria-modal="true">
-    <div class="dialog-backdrop" on:click={() => handleResolve(false)}></div>
+    <div
+      class="dialog-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close dialog"
+      on:click={() => handleResolve(false)}
+      on:keydown={handleBackdropKeydown}
+    ></div>
     <div class="dialog-panel">
       <h2 class="dialog-title" style="display: none">Dialog</h2>
       <p class="dialog-message">{$dialogState.message}</p>
