@@ -4,7 +4,7 @@
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
-  import { getSettings, saveSettings, removeFromRomLibrary } from '$lib/services/storage.js';
+  import { getSettings, saveSettings, removeFromRomLibrary, getSaveStateMeta, clearSaveStateMeta } from '$lib/services/storage.js';
   import { showConfirm } from '$lib/services/dialog.js';
 
   export let onLoadGame = (id) => {};
@@ -42,6 +42,7 @@
     const ok = await showConfirm(`Remove "${rom.name}" from library?`);
     if (ok) {
       await removeFromRomLibrary(rom.id);
+      clearSaveStateMeta(rom.id);
       romLibrary.refresh();
     }
   }
@@ -111,6 +112,9 @@
             on:keydown={(e) => handleActivateKey(e, () => onLoadRom(rom.id))}
           >
             <span class="rom-name">{rom.name}</span>
+            {#if getSaveStateMeta(rom.id)}
+              <span class="save-indicator" title="Has save state" aria-label="Has save state">💾</span>
+            {/if}
             <button
               class="sidebar-rom-remove"
               aria-label="Remove from library"

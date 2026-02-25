@@ -406,8 +406,9 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
   const romName = file.name.replace(/\.[^/.]+$/, '');
   const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
 
+  let romId = null;
   if (mode === 'import') {
-    await addToRomLibrary(romName, system, blob);
+    romId = await addToRomLibrary(romName, system, blob);
     romLibrary.refresh();
   }
   const romUrl = URL.createObjectURL(blob);
@@ -425,7 +426,7 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
       callbacks?.onError?.('Failed to load emulator');
     }
   });
-  return true;
+  return { loaded: true, romId };
 }
 
 export async function loadRomFromLibrary(romId, callbacks) {

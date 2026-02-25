@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { currentView, previousView } from '$lib/stores/viewStore.js';
-  import { currentGame } from '$lib/stores/gameStore.js';
+  import { currentGame, currentRomId } from '$lib/stores/gameStore.js';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import HomeView from '$lib/components/HomeView.svelte';
@@ -39,12 +39,14 @@
     stopEmulator();
     stopGameAudio();
     currentGame.set(id);
+    currentRomId.set(null);
     showView('play');
   }
 
   async function handleLoadRom(id) {
     stopGameAudio();
     currentGame.set(null);
+    currentRomId.set(id);
     showView('play');
     const playViewApi = await new Promise((resolve) => {
       const check = () => {
@@ -69,11 +71,12 @@
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
       },
-      onReady: () => {
+      onReady: async () => {
         playViewApi?.setRomInfo?.(`Ready: ${romName}`);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
+        await playViewApi?.promptResumeFromSave?.();
       },
       onError: (msg) => {
         playViewApi?.setRomInfo?.(msg || 'Error');
@@ -130,6 +133,7 @@
   async function handleRomFileChange(e) {
     stopGameAudio();
     currentGame.set(null);
+    currentRomId.set(null);
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
@@ -147,17 +151,18 @@
     playViewApi?.setCurrentRomSystem?.(pendingRomPick.system);
     playViewApi?.setEmulatorRunning?.(false);
     playViewApi?.refreshEmulatorCapabilities?.();
-    const loaded = await loadRomFromFile(file, pendingRomPick.system, pendingRomPick.mode, {
+    const result = await loadRomFromFile(file, pendingRomPick.system, pendingRomPick.mode, {
       onGameStart: () => {
         playViewApi?.setRomInfo?.(`Playing: ${file.name}`);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
       },
-      onReady: () => {
+      onReady: async () => {
         playViewApi?.setRomInfo?.(`Ready: ${file.name}`);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
+        await playViewApi?.promptResumeFromSave?.();
       },
       onError: (msg) => {
         playViewApi?.setRomInfo?.(msg || 'Error');
@@ -165,7 +170,7 @@
         playViewApi?.refreshEmulatorCapabilities?.();
       }
     });
-    if (!loaded) {
+    if (!result) {
       playViewApi?.setEmulatorRunning?.(false);
       playViewApi?.refreshEmulatorCapabilities?.();
       playViewApi?.setShowEmulator?.(false);
@@ -173,6 +178,7 @@
       showView('emulator');
       return;
     }
+    if (result.romId) currentRomId.set(result.romId);
     playViewApi?.setShowEmulator?.(true);
     playViewApi?.setGameTitle?.(file.name.replace(/\.[^/.]+$/, ''));
     playViewApi?.setShowPressStart?.(false);

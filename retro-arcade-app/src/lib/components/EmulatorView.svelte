@@ -3,7 +3,7 @@
   import { systemOrder, systemDisplayNames } from '$lib/config/systems.js';
   import { systemIcons } from '$lib/config/systems.js';
   import { getThumbnailUrl } from '$lib/services/thumbnailService.js';
-  import { removeFromRomLibrary } from '$lib/services/storage.js';
+  import { removeFromRomLibrary, getSaveStateMeta, clearSaveStateMeta } from '$lib/services/storage.js';
   import { showConfirm } from '$lib/services/dialog.js';
 
   export let onOpenRomDialog = (system) => {};
@@ -14,6 +14,7 @@
     const ok = await showConfirm(`Remove "${rom.name}" from library?`);
     if (ok) {
       await removeFromRomLibrary(rom.id);
+      clearSaveStateMeta(rom.id);
       romLibrary.refresh();
     }
   }
@@ -122,7 +123,12 @@
                         {/if}
                       </div>
                     </div>
-                    <div class="library-rom-info"><div class="library-rom-name">{rom.name}</div></div>
+                    <div class="library-rom-info">
+                      <div class="library-rom-name">{rom.name}</div>
+                      {#if getSaveStateMeta(rom.id)}
+                        <span class="save-indicator" title="Has save state" aria-label="Has save state">💾</span>
+                      {/if}
+                    </div>
                     <button
                       class="remove-btn"
                       aria-label="Remove from library"

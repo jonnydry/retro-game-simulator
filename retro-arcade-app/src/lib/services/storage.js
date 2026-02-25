@@ -59,3 +59,34 @@ export function saveSettings(settings) {
   return saveData(data);
 }
 
+/**
+ * Save state metadata: { [romId]: { [slot]: savedAt } }
+ * Tracks when user saved state for each ROM/slot so we can show indicators.
+ */
+export function getSaveStateMeta(romId) {
+  const data = getSavedData();
+  return data.saveStates?.[romId] || null;
+}
+
+export function setSaveStateMeta(romId, slot, savedAt = Date.now()) {
+  const data = getSavedData();
+  if (!data.saveStates) data.saveStates = {};
+  if (!data.saveStates[romId]) data.saveStates[romId] = {};
+  data.saveStates[romId][slot] = savedAt;
+  return saveData(data);
+}
+
+export function clearSaveStateMeta(romId, slot) {
+  const data = getSavedData();
+  if (!data.saveStates?.[romId]) return true;
+  if (slot !== undefined) {
+    delete data.saveStates[romId][slot];
+    if (Object.keys(data.saveStates[romId]).length === 0) {
+      delete data.saveStates[romId];
+    }
+  } else {
+    delete data.saveStates[romId];
+  }
+  return saveData(data);
+}
+

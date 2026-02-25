@@ -4,12 +4,14 @@
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import {
     currentGame,
+    currentRomId,
     score,
     isPaused,
     keys as keysStore,
     BUILTIN_GAMES
   } from '$lib/stores/gameStore.js';
-  import { getSettings } from '$lib/services/storage.js';
+  import { getSettings, getSaveStateMeta, setSaveStateMeta } from '$lib/services/storage.js';
+  import { showConfirm } from '$lib/services/dialog.js';
   import { setSoundEnabled, initAudio, playSound, stopGameAudio, resumeGameAudio, isSoundEnabled } from '$lib/services/audio.js';
   import { setHighScore } from '$lib/services/storage.js';
   import { runGame } from '$lib/games/gameRunner.js';
@@ -110,6 +112,17 @@
       ? 'Press SPACE to launch'
       : `Press SPACE to ${$isPaused ? 'start' : 'pause'}`;
 
+  function formatTimeAgo(ts) {
+    const sec = Math.floor((Date.now() - ts) / 1000);
+    if (sec < 60) return 'just now';
+    if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+    if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+    return `${Math.floor(sec / 86400)}d ago`;
+  }
+
+  $: saveStateMeta = showEmulator && $currentRomId ? (romInfo, getSaveStateMeta($currentRomId)) : null;
+  $: lastSavedText = saveStateMeta?.[0] ? formatTimeAgo(saveStateMeta[0]) : null;
+
   const CONTROL_GUIDES = {
     pong: [
       { keys: ['↑', '↓'], action: 'Move paddle' },
@@ -178,6 +191,8 @@
       romInfo = 'Save state is unavailable for this emulator core.';
       return;
     }
+    const romId = get(currentRomId);
+    if (romId) setSaveStateMeta(romId, 0);
     romInfo = 'Saved state slot 1';
     refreshEmulatorCapabilities();
   }
@@ -221,6 +236,7 @@
     stopGameAudio();
     window.__stopEmulator?.();
     currentGame.set(null);
+    currentRomId.set(null);
     isPaused.set(true);
     score.set(0);
     showPressStart = true;
@@ -315,7 +331,19 @@
         refreshEmulatorCapabilities();
       },
       refreshEmulatorCapabilities,
-      applyResolution
+      applyResolution,
+      async promptResumeFromSave() {
+        const romId = get(currentRomId);
+        if (!romId || !getSaveStateMeta(romId)) return false;
+        const ok = await showConfirm('Resume from save state?');
+        if (ok && loadEmulatorState(0)) {
+          romInfo = 'Loaded state slot 1';
+          isPaused.set(false);
+          refreshEmulatorCapabilities();
+          return true;
+        }
+        return false;
+      }
     };
     window.__playViewReady = () => api;
     window.__togglePause = togglePause;
@@ -445,6 +473,9 @@
       >
         Load
       </button>
+      {#if lastSavedText}
+        <span class="save-state-hint" title="Last save state">Saved {lastSavedText}</span>
+      {/if}
       <button
         class="control-btn"
         on:click={handleEmulatorMenu}

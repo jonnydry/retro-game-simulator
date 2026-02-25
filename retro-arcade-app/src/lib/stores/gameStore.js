@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 
 export const currentGame = writable(null); // 'pong' | 'snake' | 'breakout' | null (for ROM)
+export const currentRomId = writable(null); // rom library id when playing a ROM
 export const score = writable(0);
 export const isPaused = writable(true);
 export const gameLoop = writable(null); // RAF id for cleanup
