@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable } from 'svelte/store';
 import { getSettings } from '$lib/services/storage.js';
 
 const SCALE_OPTIONS = [
@@ -18,14 +18,9 @@ function createUiScaleStore() {
 
   return {
     subscribe,
-    set: (v) => {
-      set(v);
-    },
-    init,
+    set: (v) => set(v),
     options: SCALE_OPTIONS
   };
 }
 
 export const uiScale = createUiScaleStore();
-
-export const uiScaleZoom = derived(uiScale, ($s) => $s);

@@ -4,7 +4,6 @@ export const currentGame = writable(null); // 'pong' | 'snake' | 'breakout' | nu
 export const currentRomId = writable(null); // rom library id when playing a ROM
 export const score = writable(0);
 export const isPaused = writable(true);
-export const gameLoop = writable(null); // RAF id for cleanup
 export const keys = writable({});
 
 export const BUILTIN_GAMES = [
