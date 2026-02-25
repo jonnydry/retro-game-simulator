@@ -190,8 +190,8 @@
     onOpenSettings={handleOpenSettings}
   />
 
-  <main class="main-area" class:emulator-active={$currentView === 'emulator'} id="main-content" tabindex="-1">
-    <div class="main-logo" class:visible={$sidebarCollapsed} aria-hidden="true">
+  <main class="main-area" class:emulator-active={$currentView === 'emulator'} class:browse-mode={$currentView === 'home' || $currentView === 'emulator'} id="main-content" tabindex="-1">
+    <div class="main-logo" class:visible={$sidebarCollapsed && $currentView !== 'emulator'} aria-hidden="true">
       <img src="/logo-icon-48.png" alt="" class="main-logo-icon" aria-hidden="true" />
       <span class="logo-emu">Emu</span><span>Phoria</span>
     </div>

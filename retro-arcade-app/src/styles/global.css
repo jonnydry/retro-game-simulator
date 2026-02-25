@@ -129,14 +129,16 @@
       font-family: var(--font-mono);
       background: var(--bg-primary);
       color: var(--text-primary);
-      height: 100vh;
-      overflow: hidden;
+      min-height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
       letter-spacing: 0.05em;
     }
 
     .app-container {
       display: flex;
-      height: 100vh;
+      min-height: 100vh;
+      align-items: flex-start;
       position: relative;
     }
 
@@ -162,6 +164,7 @@
 
     .sidebar {
       width: var(--sidebar-width);
+      min-height: 100vh;
       height: 100vh;
       background: var(--bg-secondary);
       border: none;
@@ -170,7 +173,9 @@
       flex-direction: column;
       flex-shrink: 0;
       transition: width 0.25s ease;
-      position: relative;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
       z-index: 10;
     }
 
@@ -653,12 +658,15 @@
       display: flex;
       flex-direction: column;
       padding: 16px 16px;
-      overflow: hidden;
-      min-height: 0;
-      height: 100vh;
+      min-height: 100vh;
+      min-width: 0;
       background: transparent;
       position: relative;
       z-index: 5;
+    }
+    .main-area:not(.browse-mode) {
+      height: 100vh;
+      overflow: hidden;
     }
     .app-container.theater-mode .main-area {
       z-index: 1200;
@@ -669,6 +677,19 @@
     }
     .main-area.emulator-active > * {
       min-height: 0;
+    }
+    .main-area.browse-mode .main-view {
+      flex: 0 0 auto;
+      min-height: min-content;
+    }
+    .main-area.browse-mode .emulator-view {
+      overflow: visible;
+    }
+    .main-area.browse-mode .emulator-scroll {
+      flex: none;
+      overflow: visible;
+      min-height: 0;
+      padding-bottom: 48px;
     }
 
     .main-logo {
