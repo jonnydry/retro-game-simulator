@@ -74,12 +74,12 @@
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
       },
-      onReady: async () => {
+      onReady: async (opts) => {
         playViewApi?.setRomInfo?.(`Ready: ${romName}`);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
-        await playViewApi?.promptResumeFromSave?.();
+        await playViewApi?.promptResumeFromSave?.(opts);
       },
       onError: (msg) => {
         playViewApi?.setRomInfo?.(msg || 'Error');
@@ -126,7 +126,7 @@
   onMount(async () => {
     window.__stopEmulator = stopEmulator;
     const dreamcastAvailable = await initializeDreamcastSupport();
-    setDreamcastEnabled(dreamcastAvailable);
+    if (dreamcastAvailable) setDreamcastEnabled(true);
     await initRomStorage();
     romLibrary.refresh();
     storageReady = true;
@@ -162,12 +162,12 @@
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
       },
-      onReady: async () => {
+      onReady: async (opts) => {
         playViewApi?.setRomInfo?.(`Ready: ${file.name}`);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
-        await playViewApi?.promptResumeFromSave?.();
+        await playViewApi?.promptResumeFromSave?.(opts);
       },
       onError: (msg) => {
         playViewApi?.setRomInfo?.(msg || 'Error');

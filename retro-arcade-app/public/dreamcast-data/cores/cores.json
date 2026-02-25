@@ -1,0 +1,24 @@
+[
+  {
+    "name": "flycast",
+    "extensions": [
+      "cdi",
+      "gdi",
+      "chd",
+      "cue",
+      "iso",
+      "elf",
+      "bin",
+      "lst",
+      "zip",
+      "7z",
+      "dat"
+    ],
+    "options": {
+      "defaultWebGL2": true
+    },
+    "save": "state",
+    "license": "GPLv2",
+    "repo": "https://github.com/flyinghead/flycast"
+  }
+]

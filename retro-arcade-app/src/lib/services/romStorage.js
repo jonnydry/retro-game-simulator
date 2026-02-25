@@ -1,7 +1,8 @@
 const DB_NAME = 'RetroArcadeRoms';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const META_STORE = 'romMeta';
 const BLOBS_STORE = 'romBlobs';
+const SAVESTATE_STORE = 'saveStates';
 const STORAGE_KEY = 'retroArcade_data';
 const MIGRATION_FLAG = 'retroArcade_romsMigrated';
 
@@ -34,6 +35,9 @@ function openDB() {
       }
       if (!database.objectStoreNames.contains(BLOBS_STORE)) {
         database.createObjectStore(BLOBS_STORE, { keyPath: 'id' });
+      }
+      if (!database.objectStoreNames.contains(SAVESTATE_STORE)) {
+        database.createObjectStore(SAVESTATE_STORE, { keyPath: 'id' });
       }
     };
   });
@@ -229,17 +233,69 @@ export async function updateRomLastPlayed(id) {
   });
 }
 
+/**
+ * Save state blob storage. Key: `${romId}_slot${slot}` (e.g. rom_abc123_slot0)
+ */
+function saveStateId(romId, slot = 0) {
+  return `${romId}_slot${slot}`;
+}
+
+export async function getSaveStateBlob(romId, slot = 0) {
+  if (!isIndexedDBAvailable()) return null;
+  const database = db || (await openDB());
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(SAVESTATE_STORE, 'readonly');
+    const store = tx.objectStore(SAVESTATE_STORE);
+    const req = store.get(saveStateId(romId, slot));
+    req.onsuccess = () => resolve(req.result?.blob ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function saveSaveStateBlob(romId, slot, blob) {
+  if (!isIndexedDBAvailable()) throw new Error('IndexedDB not available');
+  const database = db || (await openDB());
+  const blobObj = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/octet-stream' });
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(SAVESTATE_STORE, 'readwrite');
+    const store = tx.objectStore(SAVESTATE_STORE);
+    store.put({
+      id: saveStateId(romId, slot),
+      blob: blobObj,
+      romId,
+      slot,
+      savedAt: Date.now()
+    });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function removeSaveStateBlob(romId, slot = 0) {
+  if (!isIndexedDBAvailable()) return;
+  const database = db || (await openDB());
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(SAVESTATE_STORE, 'readwrite');
+    const store = tx.objectStore(SAVESTATE_STORE);
+    store.delete(saveStateId(romId, slot));
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function removeFromRomLibrary(id) {
   if (!isIndexedDBAvailable()) return;
   const database = db || (await openDB());
 
   return new Promise((resolve, reject) => {
-    const tx = database.transaction([META_STORE, BLOBS_STORE], 'readwrite');
+    const tx = database.transaction([META_STORE, BLOBS_STORE, SAVESTATE_STORE], 'readwrite');
     const metaStore = tx.objectStore(META_STORE);
     const blobsStore = tx.objectStore(BLOBS_STORE);
+    const saveStore = tx.objectStore(SAVESTATE_STORE);
 
     metaStore.delete(id);
     blobsStore.delete(id);
+    saveStore.delete(saveStateId(id, 0));
 
     tx.oncomplete = () => {
       metaCache = metaCache.filter((r) => r.id !== id);

@@ -23,7 +23,7 @@
     loadEmulatorState,
     openEmulatorMenu,
     resetEmulator,
-    saveEmulatorState,
+    saveEmulatorStateAndCapture,
     setEmulatorPaused,
     setEmulatorVolume
   } from '$lib/services/emulator.js';
@@ -186,12 +186,15 @@
     refreshEmulatorCapabilities();
   }
 
-  function handleEmulatorSaveState() {
-    if (!saveEmulatorState(0)) {
+  async function handleEmulatorSaveState() {
+    const romId = get(currentRomId);
+    const saved = romId
+      ? await saveEmulatorStateAndCapture(romId, 0)
+      : saveEmulatorState(0);
+    if (!saved) {
       romInfo = 'Save state is unavailable for this emulator core.';
       return;
     }
-    const romId = get(currentRomId);
     if (romId) setSaveStateMeta(romId, 0);
     romInfo = 'Saved state slot 1';
     refreshEmulatorCapabilities();
@@ -332,7 +335,8 @@
       },
       refreshEmulatorCapabilities,
       applyResolution,
-      async promptResumeFromSave() {
+      async promptResumeFromSave(opts = {}) {
+        if (opts.usedLoadStateURL) return false;
         const romId = get(currentRomId);
         if (!romId || !getSaveStateMeta(romId)) return false;
         const ok = await showConfirm('Resume from save state?');
@@ -400,7 +404,6 @@
     {/if}
   </div>
   <div class="game-container">
-    <div class="scanline-effect"></div>
     <div class="game-frame" id="crtFrame" bind:this={crtFrameEl}>
       <canvas
         bind:this={canvasEl}
