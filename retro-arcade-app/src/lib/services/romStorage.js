@@ -175,9 +175,15 @@ export async function addToRomLibrary(name, system, blob) {
 
   const existing = metaCache.find((r) => r.name === safeName && r.system === system);
   const id = existing ? existing.id : makeRomId(safeName, system);
-  const lastPlayed = Date.now();
+  const now = Date.now();
 
-  const meta = { id, name: safeName, system, lastPlayed };
+  const meta = {
+    id,
+    name: safeName,
+    system,
+    lastPlayed: now,
+    addedAt: now
+  };
 
   return new Promise((resolve, reject) => {
     const tx = database.transaction([META_STORE, BLOBS_STORE], 'readwrite');

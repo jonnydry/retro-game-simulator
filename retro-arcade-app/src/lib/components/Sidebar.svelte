@@ -4,8 +4,6 @@
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
-  import { getThumbnailUrl } from '$lib/services/thumbnailService.js';
-  import { systemIcons } from '$lib/config/systems.js';
   import { getSettings, saveSettings, removeFromRomLibrary } from '$lib/services/storage.js';
   import { showConfirm } from '$lib/services/dialog.js';
 
@@ -15,13 +13,9 @@
 
   let myGamesExpanded = false;
 
-  $: recentRoms = [...$romLibrary]
-    .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0))
-    .map((rom) => ({
-      ...rom,
-      thumbnail: getThumbnailUrl(rom.name, rom.system),
-      fallbackIcon: systemIcons[rom.system] || null
-    }));
+  $: recentlyAddedRoms = [...$romLibrary]
+    .sort((a, b) => (b.addedAt ?? b.lastPlayed ?? 0) - (a.addedAt ?? a.lastPlayed ?? 0))
+    .slice(0, 3);
 
   function showView(view) {
     previousView.set($currentView);
@@ -103,43 +97,19 @@
         </div>
       {/each}
     </div>
-    <div class="section-title" style="margin-top:16px">Recent ROMs</div>
-    <div class="sidebar-library">
-      {#if recentRoms.length === 0}
+    <div class="section-title" style="margin-top:16px">Recently Added</div>
+    <div class="sidebar-library sidebar-library-simple">
+      {#if recentlyAddedRoms.length === 0}
         <p class="library-empty-hint" style="color:var(--text-muted);font-size:11px;padding:8px 0">No ROMs yet</p>
       {:else}
-        {#each recentRoms as rom}
+        {#each recentlyAddedRoms as rom}
           <div
-            class="sidebar-rom-item"
+            class="sidebar-rom-item sidebar-rom-item-simple"
             role="button"
             tabindex="0"
             on:click={() => onLoadRom(rom.id)}
             on:keydown={(e) => handleActivateKey(e, () => onLoadRom(rom.id))}
           >
-            <div class="rom-thumbnail">
-              {#if rom.thumbnail}
-                <img
-                  src={rom.thumbnail}
-                  alt=""
-                  on:error={(e) => {
-                    e.target.style.display = 'none';
-                    const fallback = e.target.nextElementSibling;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
-              {/if}
-              <div
-                class="rom-thumbnail-fallback"
-                style="display: {rom.thumbnail ? 'none' : 'flex'}"
-                aria-hidden="true"
-              >
-                {#if rom.fallbackIcon}
-                  {@html rom.fallbackIcon}
-                {:else}
-                  <span class="rom-thumbnail-placeholder">🎮</span>
-                {/if}
-              </div>
-            </div>
             <span class="rom-name">{rom.name}</span>
             <button
               class="sidebar-rom-remove"

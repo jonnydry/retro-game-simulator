@@ -55,7 +55,10 @@
 
 <div class="main-view emulator-view">
   <div class="emulator-scroll">
-    <h1 style="font-family: var(--font-display); font-size: 28px; color: var(--text-primary); margin-bottom: 20px">Emulator Select</h1>
+    <div class="emulator-logo-header">
+      <img src="/logo-icon-96.png" alt="" class="emulator-logo-icon" aria-hidden="true" />
+      <span class="logo-emu">Emu</span><span>Phoria</span>
+    </div>
     <div class="section-title" style="margin-bottom: 12px">Systems</div>
     <div class="system-cards-grid">
       {#each systemOrder as sys}

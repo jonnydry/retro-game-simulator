@@ -20,6 +20,7 @@
   import { getSettings, getRomFromLibrary } from '$lib/services/storage.js';
   import { initRomStorage } from '$lib/services/romStorage.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
+  import { uiScale } from '$lib/stores/uiScaleStore.js';
   import { startWatching } from '$lib/services/watchFolderService.js';
 
   let showRomDialog = false;
@@ -122,6 +123,7 @@
     romLibrary.refresh();
     storageReady = true;
     const settings = getSettings();
+    uiScale.set(settings.uiScale ?? 1.15);
     startWatching(settings.watchFoldersEnabled ?? false);
   });
 
@@ -180,7 +182,7 @@
   }
 </script>
 
-<div class="app-container dither-bg">
+<div class="app-container dither-bg" style="zoom: {$uiScale}">
   {#if storageReady}
   <Sidebar
     onLoadGame={handleLoadGame}
@@ -190,6 +192,7 @@
 
   <main class="main-area" class:emulator-active={$currentView === 'emulator'} id="main-content" tabindex="-1">
     <div class="main-logo" class:visible={$sidebarCollapsed} aria-hidden="true">
+      <img src="/logo-icon-48.png" alt="" class="main-logo-icon" aria-hidden="true" />
       <span class="logo-emu">Emu</span><span>Phoria</span>
     </div>
     {#if $currentView === 'home'}

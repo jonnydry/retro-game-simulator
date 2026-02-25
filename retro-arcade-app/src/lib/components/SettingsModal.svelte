@@ -1,6 +1,7 @@
 <script>
   import { getSettings, saveSettings, getSavedData, saveData } from '$lib/services/storage.js';
   import { setSoundEnabled, initAudio } from '$lib/services/audio.js';
+  import { uiScale } from '$lib/stores/uiScaleStore.js';
   import { showConfirm } from '$lib/services/dialog.js';
   import {
     isSupported,
@@ -23,22 +24,37 @@
 
   let showSettings = false;
   let gamepadStatusText = 'No gamepad connected';
+  let gamepadConnected = false;
+  let gamepadListenerCleanup = null;
 
   function open() {
     const settings = getSettings();
     soundEnabled = settings.soundEnabled ?? false;
     showHints = settings.showHints ?? true;
+    uiScale.set(settings.uiScale ?? 1.15);
     watchFoldersEnabled = settings.watchFoldersEnabled ?? false;
     updateHighScoresList();
     updateGamepadStatus();
     loadWatchedFolders();
     showSettings = true;
+    if (typeof window !== 'undefined') {
+      window.addEventListener('gamepadconnected', updateGamepadStatus);
+      window.addEventListener('gamepaddisconnected', updateGamepadStatus);
+      gamepadListenerCleanup = () => {
+        window.removeEventListener('gamepadconnected', updateGamepadStatus);
+        window.removeEventListener('gamepaddisconnected', updateGamepadStatus);
+        gamepadListenerCleanup = null;
+      };
+    }
   }
 
   function close() {
     showSettings = false;
     watchFolderError = '';
     scanStatus = '';
+    if (gamepadListenerCleanup) {
+      gamepadListenerCleanup();
+    }
   }
 
   async function loadWatchedFolders() {
@@ -99,7 +115,24 @@
         if (gp) connected.push(gp.id.split('(')[0].trim() || 'Gamepad');
       }
     }
+    gamepadConnected = connected.length > 0;
     gamepadStatusText = connected.length > 0 ? connected[0] + (connected.length > 1 ? ` +${connected.length - 1} more` : '') : 'No gamepad connected';
+  }
+
+  function handleScanGamepads() {
+    updateGamepadStatus();
+    if (!gamepadConnected && typeof window !== 'undefined') {
+      let pollCount = 0;
+      const maxPolls = 25;
+      const poll = () => {
+        pollCount++;
+        updateGamepadStatus();
+        if (!gamepadConnected && pollCount < maxPolls) {
+          setTimeout(poll, 200);
+        }
+      };
+      setTimeout(poll, 200);
+    }
   }
 
   async function clearHighScores() {
@@ -155,6 +188,22 @@
             <input type="checkbox" bind:checked={showHints} on:change={updateSettings} />
             <span class="toggle-slider"></span>
           </label>
+          <label class="settings-row" style="margin-top: 12px">
+            <span>UI Scale</span>
+            <select
+              style="padding: 6px 10px; font-size: 13px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: 4px"
+              value={$uiScale}
+              on:change={(e) => {
+                const v = parseFloat(e.currentTarget.value);
+                uiScale.set(v);
+                updateSettings({ uiScale: v });
+              }}
+            >
+              {#each uiScale.options as opt}
+                <option value={opt.value}>{opt.label}</option>
+              {/each}
+            </select>
+          </label>
         </div>
         <div class="settings-section">
           <h3>ROM Folders</h3>
@@ -205,16 +254,20 @@
         <div class="settings-section">
           <h3>Gamepad</h3>
           <div class="gamepad-settings">
-            <div class="gamepad-status">
+            <div class="gamepad-status" class:connected={gamepadConnected}>
+              <span class="gamepad-status-dot" aria-hidden="true"></span>
               <span class="gamepad-status-text">{gamepadStatusText}</span>
             </div>
             <button
               class="control-btn"
               style="width: 100%; margin-top: 8px; justify-content: center"
-              on:click={updateGamepadStatus}
+              on:click={handleScanGamepads}
             >
               Scan for Gamepads
             </button>
+            <p style="color: var(--text-muted); font-size: 11px; margin-top: 8px; line-height: 1.4">
+              If your gamepad doesn't appear: press any button or move a stick <em>while this page is open</em>, then click Scan again. Chrome and Edge require gamepad interaction before detecting it.
+            </p>
           </div>
         </div>
         <div class="settings-section">
