@@ -268,6 +268,9 @@
             <p style="color: var(--text-muted); font-size: 11px; margin-top: 8px; line-height: 1.4">
               If your gamepad doesn't appear: press any button or move a stick <em>while this page is open</em>, then click Scan again. Chrome and Edge require gamepad interaction before detecting it.
             </p>
+            <p style="color: var(--text-muted); font-size: 11px; margin-top: 6px; line-height: 1.4">
+              Modern pads (Xbox, DualSense, Switch Pro/8BitDo) are supported through the browser Gamepad API.
+            </p>
           </div>
         </div>
         <div class="settings-section">

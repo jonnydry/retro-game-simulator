@@ -16,6 +16,7 @@ const systemToLibRetroFolder = {
   sms: 'Sega - Master System - Mark III',
   n64: 'Nintendo - Nintendo 64',
   psx: 'Sony - PlayStation',
+  dreamcast: 'Sega - Dreamcast',
   pce: 'NEC - PC Engine - TurboGrafx 16',
   ngp: 'SNK - Neo Geo Pocket',
   ngpc: 'SNK - Neo Geo Pocket Color',

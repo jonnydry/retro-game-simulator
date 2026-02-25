@@ -11,10 +11,11 @@
   import RomDialogModal from '$lib/components/RomDialogModal.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
   import {
+    getEnabledSystemExtensions,
+    initializeDreamcastSupport,
     loadRomFromLibrary,
     loadRomFromFile,
     stopEmulator,
-    systemExtensions
   } from '$lib/services/emulator.js';
   import { stopGameAudio } from '$lib/services/audio.js';
   import { getSettings, getRomFromLibrary } from '$lib/services/storage.js';
@@ -22,13 +23,15 @@
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
   import { uiScale } from '$lib/stores/uiScaleStore.js';
   import { startWatching } from '$lib/services/watchFolderService.js';
+  import { enabledSystems, setDreamcastEnabled } from '$lib/stores/systemStore.js';
 
   let showRomDialog = false;
   let romDialogPreselected = '';
   let romFileInput = null;
   let pendingRomPick = { system: '', mode: 'import' };
   let storageReady = false;
-  const romAccept = [...new Set(Object.values(systemExtensions).flat())].join(',');
+  let romAccept = '';
+  $: romAccept = [...new Set(Object.values(getEnabledSystemExtensions($enabledSystems)).flat())].join(',');
 
   function showView(view) {
     previousView.set($currentView);
@@ -122,6 +125,8 @@
 
   onMount(async () => {
     window.__stopEmulator = stopEmulator;
+    const dreamcastAvailable = await initializeDreamcastSupport();
+    setDreamcastEnabled(dreamcastAvailable);
     await initRomStorage();
     romLibrary.refresh();
     storageReady = true;

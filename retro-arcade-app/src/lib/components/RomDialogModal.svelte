@@ -1,27 +1,30 @@
 <script>
   import { showAlert } from '$lib/services/dialog.js';
+  import { systemDisplayNames } from '$lib/config/systems.js';
+  import { enabledSystems } from '$lib/stores/systemStore.js';
 
   export let preselectedSystem = '';
   export let onClose = () => {};
   export let onImport = (system) => {};
   export let onRun = (system) => {};
 
-  $: selectedSystem = preselectedSystem;
+  let selectedSystem = preselectedSystem;
+  let lastPreselectedSystem = preselectedSystem;
+  $: if (preselectedSystem !== lastPreselectedSystem) {
+    selectedSystem = preselectedSystem;
+    lastPreselectedSystem = preselectedSystem;
+  }
 
-  const systemOptions = [
-    { value: 'nes', label: 'NES' },
-    { value: 'snes', label: 'SNES' },
-    { value: 'gb', label: 'Game Boy' },
-    { value: 'gbc', label: 'Game Boy Color' },
-    { value: 'gba', label: 'Game Boy Advance' },
-    { value: 'genesis', label: 'Genesis' },
-    { value: 'sms', label: 'Master System' },
-    { value: 'n64', label: 'N64' },
-    { value: 'psx', label: 'PlayStation' },
-    { value: 'pce', label: 'PC Engine' },
-    { value: 'ngp', label: 'Neo Geo Pocket' },
-    { value: 'ws', label: 'WonderSwan' }
-  ];
+  $: if (selectedSystem && !$enabledSystems.includes(selectedSystem)) {
+    selectedSystem = preselectedSystem && $enabledSystems.includes(preselectedSystem)
+      ? preselectedSystem
+      : '';
+  }
+
+  $: systemOptions = $enabledSystems.map((value) => ({
+    value,
+    label: systemDisplayNames[value] || value.toUpperCase()
+  }));
 
   function handleImport() {
     if (!selectedSystem) {

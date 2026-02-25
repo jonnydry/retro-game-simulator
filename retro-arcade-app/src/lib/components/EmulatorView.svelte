@@ -1,7 +1,8 @@
 <script>
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
-  import { systemOrder, systemDisplayNames } from '$lib/config/systems.js';
+  import { systemDisplayNames } from '$lib/config/systems.js';
   import { systemIcons } from '$lib/config/systems.js';
+  import { enabledSystems } from '$lib/stores/systemStore.js';
   import { getThumbnailUrl } from '$lib/services/thumbnailService.js';
   import { removeFromRomLibrary, getSaveStateMeta, clearSaveStateMeta } from '$lib/services/storage.js';
   import { showConfirm } from '$lib/services/dialog.js';
@@ -30,7 +31,7 @@
   $: {
     const lib = $romLibrary;
     const counts = {};
-    systemOrder.forEach(s => { counts[s] = 0; });
+    $enabledSystems.forEach(s => { counts[s] = 0; });
     lib.forEach(r => { counts[r.system] = (counts[r.system] || 0) + 1; });
     countBySystem = counts;
   }
@@ -39,7 +40,7 @@
   $: {
     const lib = $romLibrary;
     const by = {};
-    systemOrder.forEach(s => { by[s] = []; });
+    $enabledSystems.forEach(s => { by[s] = []; });
     lib.forEach((r) => {
       if (by[r.system]) {
         by[r.system].push({
@@ -49,7 +50,7 @@
         });
       }
     });
-    systemOrder.forEach(s => { by[s] = by[s].sort((a,b) => (b.lastPlayed||0) - (a.lastPlayed||0)); });
+    $enabledSystems.forEach(s => { by[s] = by[s].sort((a,b) => (b.lastPlayed||0) - (a.lastPlayed||0)); });
     libraryBySystem = by;
   }
 </script>
@@ -62,7 +63,7 @@
     </div>
     <div class="section-title" style="margin-bottom: 12px">Systems</div>
     <div class="system-cards-grid">
-      {#each systemOrder as sys}
+      {#each $enabledSystems as sys}
         <div
           class="system-card"
           role="button"
@@ -81,7 +82,7 @@
       {#if $romLibrary.length === 0}
         <p class="library-empty-hint" style="color: var(--text-secondary); font-size: 14px">No ROMs yet. Click a system card above to import or run a ROM.</p>
       {:else}
-        {#each systemOrder as sys}
+        {#each $enabledSystems as sys}
           {#if (libraryBySystem[sys] || []).length > 0}
             <details class="library-system-section" open>
               <summary class="library-system-header">

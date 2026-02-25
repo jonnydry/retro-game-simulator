@@ -1,6 +1,11 @@
 import { addToRomLibrary, getRomLibrary } from '$lib/services/storage.js';
 import { romLibrary } from '$lib/stores/romLibraryStore.js';
-import { inferSystemFromFileName, systemExtensions } from '$lib/services/emulator.js';
+import {
+  getEnabledSystemExtensions,
+  inferSystemFromFileName,
+  isDreamcastAvailable
+} from '$lib/services/emulator.js';
+import { DREAMCAST_SYSTEM_ID } from '$lib/config/systems.js';
 
 const DB_NAME = 'RetroArcadeWatch';
 const DB_VERSION = 1;
@@ -78,7 +83,7 @@ export async function removeWatchFolder(id) {
 
 function isRomExtension(fileName) {
   const lower = fileName.toLowerCase();
-  for (const exts of Object.values(systemExtensions)) {
+  for (const exts of Object.values(getEnabledSystemExtensions())) {
     if (exts.some((ext) => lower.endsWith(ext))) return true;
   }
   return false;
@@ -135,6 +140,7 @@ export async function scanFolderForRoms(handle) {
   for (const { handle: fileHandle, name } of romFiles) {
     const system = inferSystemFromFileName(name);
     if (!system) continue;
+    if (system === DREAMCAST_SYSTEM_ID && !isDreamcastAvailable()) continue;
 
     const key = `${name}|${system}`;
     if (known.has(key)) continue;

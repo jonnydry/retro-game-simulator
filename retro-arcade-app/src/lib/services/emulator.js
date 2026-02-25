@@ -4,12 +4,21 @@ import {
   getRomBlob,
   updateRomLastPlayed
 } from '$lib/services/storage.js';
+import { DREAMCAST_SYSTEM_ID, defaultEnabledSystems, systemOrder } from '$lib/config/systems.js';
 import { romLibrary } from '$lib/stores/romLibraryStore.js';
 import { showAlert, showConfirm } from '$lib/services/dialog.js';
 
-const EJS_CDN = 'https://cdn.emulatorjs.org/stable/data/';
+const DEFAULT_EJS_CDN = ensureTrailingSlash(
+  import.meta.env.VITE_EMULATOR_DATA_PATH || 'https://cdn.emulatorjs.org/stable/data/'
+);
+const DREAMCAST_CORE = (import.meta.env.VITE_DREAMCAST_CORE || 'flycast').trim();
+const DREAMCAST_FORCE_ENABLE = String(import.meta.env.VITE_DREAMCAST_FORCE_ENABLE || '').toLowerCase() === 'true';
+const DREAMCAST_CUSTOM_DATA_PATH = ensureTrailingSlash(import.meta.env.VITE_DREAMCAST_DATA_PATH || '');
 let currentRomBlobUrl = null;
 let createElementPatchRestore = null;
+let dreamcastSupportInitialized = false;
+let dreamcastSupportAvailable = false;
+let dreamcastDataPath = '';
 const MENU_BUTTON_SELECTORS = [
   '[data-ejs="menu"]',
   '.ejs_menu_button',
@@ -20,6 +29,42 @@ const MENU_BUTTON_SELECTORS = [
   '[aria-label*="settings" i]',
   '[title*="settings" i]'
 ];
+
+function ensureTrailingSlash(path) {
+  if (!path) return '';
+  return path.endsWith('/') ? path : `${path}/`;
+}
+
+function getCoresManifestUrl(dataPath) {
+  const path = ensureTrailingSlash(dataPath || DEFAULT_EJS_CDN);
+  return `${path}cores/cores.json`;
+}
+
+function hasCoreInManifest(manifest, coreName) {
+  if (!coreName) return false;
+  if (Array.isArray(manifest)) {
+    return manifest.some((entry) => entry?.name === coreName);
+  }
+  if (manifest && typeof manifest === 'object') {
+    return Object.prototype.hasOwnProperty.call(manifest, coreName);
+  }
+  return false;
+}
+
+async function dataPathSupportsCore(dataPath, coreName) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(getCoresManifestUrl(dataPath), { signal: controller.signal });
+    if (!res.ok) return false;
+    const manifest = await res.json();
+    return hasCoreInManifest(manifest, coreName);
+  } catch (e) {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 const EMULATOR_METHODS = {
   pause: ['pause'],
@@ -57,7 +102,8 @@ export const systemToCore = {
   psx: 'mednafen_psx_hw',
   pce: 'mednafen_pce',
   ngp: 'mednafen_ngp',
-  ws: 'mednafen_wswan'
+  ws: 'mednafen_wswan',
+  [DREAMCAST_SYSTEM_ID]: DREAMCAST_CORE
 };
 
 export const systemControlScheme = {
@@ -72,7 +118,8 @@ export const systemControlScheme = {
   psx: 'psx',
   pce: 'pce',
   ngp: 'ngp',
-  ws: 'ws'
+  ws: 'ws',
+  [DREAMCAST_SYSTEM_ID]: 'dreamcast'
 };
 
 export const systemExtensions = {
@@ -85,10 +132,68 @@ export const systemExtensions = {
   sms: ['.sms', '.zip'],
   n64: ['.z64', '.n64', '.v64', '.zip'],
   psx: ['.bin', '.cue', '.chd', '.pbp', '.iso', '.img', '.zip'],
+  [DREAMCAST_SYSTEM_ID]: ['.cdi', '.gdi', '.chd', '.zip'],
   pce: ['.pce', '.zip'],
   ngp: ['.ngp', '.zip'],
   ws: ['.ws', '.wsc', '.zip']
 };
+
+function isDreamcastSystem(system) {
+  return system === DREAMCAST_SYSTEM_ID;
+}
+
+function getDreamcastUnavailableMessage() {
+  return 'Dreamcast core is not available in the current EmulatorJS data path. Set VITE_DREAMCAST_DATA_PATH or VITE_DREAMCAST_FORCE_ENABLE to enable it.';
+}
+
+function getDataPathForSystem(system) {
+  if (isDreamcastSystem(system) && dreamcastSupportAvailable && dreamcastDataPath) {
+    return dreamcastDataPath;
+  }
+  return DEFAULT_EJS_CDN;
+}
+
+export function getEnabledSystems() {
+  if (dreamcastSupportAvailable) return systemOrder;
+  return defaultEnabledSystems;
+}
+
+export function getEnabledSystemExtensions(enabledSystems = getEnabledSystems()) {
+  const exts = {};
+  for (const system of enabledSystems) {
+    if (systemExtensions[system]) exts[system] = systemExtensions[system];
+  }
+  return exts;
+}
+
+export function isDreamcastAvailable() {
+  return dreamcastSupportAvailable;
+}
+
+export async function initializeDreamcastSupport() {
+  if (dreamcastSupportInitialized) return dreamcastSupportAvailable;
+  dreamcastSupportInitialized = true;
+
+  if (DREAMCAST_FORCE_ENABLE) {
+    dreamcastSupportAvailable = true;
+    dreamcastDataPath = DREAMCAST_CUSTOM_DATA_PATH || DEFAULT_EJS_CDN;
+    return dreamcastSupportAvailable;
+  }
+
+  if (DREAMCAST_CUSTOM_DATA_PATH) {
+    const hasCustomCore = await dataPathSupportsCore(DREAMCAST_CUSTOM_DATA_PATH, DREAMCAST_CORE);
+    if (hasCustomCore) {
+      dreamcastSupportAvailable = true;
+      dreamcastDataPath = DREAMCAST_CUSTOM_DATA_PATH;
+      return dreamcastSupportAvailable;
+    }
+  }
+
+  const hasDefaultCore = await dataPathSupportsCore(DEFAULT_EJS_CDN, DREAMCAST_CORE);
+  dreamcastSupportAvailable = hasDefaultCore;
+  dreamcastDataPath = hasDefaultCore ? DEFAULT_EJS_CDN : '';
+  return dreamcastSupportAvailable;
+}
 
 export const gbaDefaultControls = {
   0: {
@@ -104,6 +209,32 @@ export const gbaDefaultControls = {
     9: { value: 's', value2: 'BUTTON_3' },
     10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
     11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' }
+  },
+  1: {},
+  2: {},
+  3: {}
+};
+
+export const dreamcastDefaultControls = {
+  0: {
+    0: { value: 'x', value2: 'BUTTON_1' },
+    1: { value: 'a', value2: 'BUTTON_4' },
+    2: { value: 'v', value2: 'SELECT' },
+    3: { value: 'enter', value2: 'START' },
+    4: { value: 'up arrow', value2: 'DPAD_UP' },
+    5: { value: 'down arrow', value2: 'DPAD_DOWN' },
+    6: { value: 'left arrow', value2: 'DPAD_LEFT' },
+    7: { value: 'right arrow', value2: 'DPAD_RIGHT' },
+    8: { value: 'z', value2: 'BUTTON_2' },
+    9: { value: 's', value2: 'BUTTON_3' },
+    10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
+    11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' },
+    12: { value: 'tab', value2: 'LEFT_BOTTOM_SHOULDER' },
+    13: { value: 'r', value2: 'RIGHT_BOTTOM_SHOULDER' },
+    16: { value: 'l', value2: 'LEFT_STICK_X:+1' },
+    17: { value: 'j', value2: 'LEFT_STICK_X:-1' },
+    18: { value: 'k', value2: 'LEFT_STICK_Y:+1' },
+    19: { value: 'i', value2: 'LEFT_STICK_Y:-1' }
   },
   1: {},
   2: {},
@@ -339,6 +470,9 @@ export function stopEmulator() {
     window.EJS_onGameStart = undefined;
     window.EJS_ready = undefined;
     window.EJS_volume = undefined;
+    window.EJS_controlScheme = undefined;
+    window.EJS_defaultControls = undefined;
+    window.EJS_defaultOptions = undefined;
   }
 }
 
@@ -353,13 +487,20 @@ function loadEmulator(containerId, romUrl, gameName, system, callbacks) {
   window.EJS_core = systemToCore[system];
   window.EJS_gameUrl = romUrl;
   window.EJS_gameName = gameName;
-  window.EJS_pathtodata = EJS_CDN;
+  window.EJS_pathtodata = getDataPathForSystem(system);
   window.EJS_color = '#ff0080';
   window.EJS_startOnLoaded = true;
   window.EJS_alignStartButton = 'center';
   window.EJS_backgroundColor = '#000000';
   if (systemControlScheme[system]) window.EJS_controlScheme = systemControlScheme[system];
-  if (system === 'gba') window.EJS_defaultControls = gbaDefaultControls;
+  if (system === 'gba') {
+    window.EJS_defaultControls = gbaDefaultControls;
+  } else if (isDreamcastSystem(system)) {
+    // Includes trigger and analog defaults for modern controllers.
+    window.EJS_defaultControls = dreamcastDefaultControls;
+  } else {
+    window.EJS_defaultControls = undefined;
+  }
   window.EJS_defaultOptions = {
     ...(window.EJS_defaultOptions || {}),
     'input_player1_joypad_index': 0
@@ -368,12 +509,16 @@ function loadEmulator(containerId, romUrl, gameName, system, callbacks) {
   window.EJS_ready = callbacks?.onReady;
 
   const script = document.createElement('script');
-  script.src = EJS_CDN + 'loader.js';
+  script.src = `${window.EJS_pathtodata}loader.js`;
   script.onerror = callbacks?.onError;
   container.appendChild(script);
 }
 
 export async function loadRomFromFile(file, system, mode, callbacks) {
+  if (!dreamcastSupportInitialized) {
+    await initializeDreamcastSupport();
+  }
+
   if (!system) {
     system = inferSystemFromFileName(file.name);
     if (!system) {
@@ -383,6 +528,13 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
       callbacks?.onError?.('No system selected for ROM');
       return false;
     }
+  }
+
+  if (isDreamcastSystem(system) && !dreamcastSupportAvailable) {
+    const message = getDreamcastUnavailableMessage();
+    await showAlert(message);
+    callbacks?.onError?.(message);
+    return false;
   }
 
   const fileName = file.name.toLowerCase();
@@ -430,9 +582,20 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
 }
 
 export async function loadRomFromLibrary(romId, callbacks) {
+  if (!dreamcastSupportInitialized) {
+    await initializeDreamcastSupport();
+  }
+
   const rom = getRomFromLibrary(romId);
   if (!rom) {
     callbacks?.onError?.('ROM not found in library');
+    return false;
+  }
+
+  if (isDreamcastSystem(rom.system) && !dreamcastSupportAvailable) {
+    const message = getDreamcastUnavailableMessage();
+    await showAlert(message);
+    callbacks?.onError?.(message);
     return false;
   }
 
