@@ -8,6 +8,7 @@ import {
 import { getSaveStateBlob, saveSaveStateBlob } from '$lib/services/romStorage.js';
 import { DREAMCAST_SYSTEM_ID, defaultEnabledSystems, systemOrder } from '$lib/config/systems.js';
 import { romLibrary } from '$lib/stores/romLibraryStore.js';
+import { saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
 import { showAlert, showConfirm } from '$lib/services/dialog.js';
 
 const DEFAULT_EJS_CDN = ensureTrailingSlash(
@@ -428,7 +429,10 @@ export async function attemptAutoSaveRomState(romId) {
   if (!caps.canSaveState) return;
   try {
     const ok = await saveEmulatorStateAndCapture(romId, 0);
-    if (ok) setSaveStateMeta(romId, 0);
+    if (ok) {
+      setSaveStateMeta(romId, 0);
+      saveStateRefreshTrigger.update((n) => n + 1);
+    }
   } catch (e) {
     console.warn('Auto-save failed', e);
   }
@@ -559,6 +563,8 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
   }
 
   applyCreateElementPatch();
+  revokeBlobUrl(currentLoadStateBlobUrl);
+  currentLoadStateBlobUrl = null;
   currentRomBlobUrl = romUrl;
 
   let loadStateUrl = options.loadStateUrl || null;
@@ -610,8 +616,8 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
   script.src = `${window.EJS_pathtodata}loader.js`;
   script.onerror = () => {
     const msg = isDreamcastSystem(system)
-      ? 'Dreamcast failed to load. Open the browser console (F12) for details. Common issues: 1) Run "npm run setup-dreamcast" 2) Ensure BIOS is in dreamcast-data/bios/dc/ 3) Try .cdi or .gdi ROM format.'
-      : 'Failed to load emulator';
+      ? 'Dreamcast failed. Run "npm run setup-dreamcast", add BIOS to dreamcast-data/bios/dc/, or try .cdi/.gdi format.'
+      : `Emulator failed to load. Check your connection and try again. For ${system.toUpperCase()}, ensure the ROM format is supported.`;
     callbacks?.onError?.(msg);
   };
   container.appendChild(script);

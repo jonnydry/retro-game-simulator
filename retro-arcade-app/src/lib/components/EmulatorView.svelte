@@ -1,5 +1,6 @@
 <script>
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
+  import { saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
   import { systemDisplayNames } from '$lib/config/systems.js';
   import { systemIcons } from '$lib/config/systems.js';
   import { enabledSystems } from '$lib/stores/systemStore.js';
@@ -36,6 +37,7 @@
     countBySystem = counts;
   }
 
+  $: _ = $saveStateRefreshTrigger; // refresh save state indicators when auto-save completes
   $: libraryBySystem = {};
   $: {
     const lib = $romLibrary;

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { BUILTIN_GAMES } from '$lib/stores/gameStore.js';
+  import { BUILTIN_GAMES, saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
@@ -16,6 +16,7 @@
   $: recentlyAddedRoms = [...$romLibrary]
     .sort((a, b) => (b.addedAt ?? b.lastPlayed ?? 0) - (a.addedAt ?? a.lastPlayed ?? 0))
     .slice(0, 3);
+  $: _ = $saveStateRefreshTrigger; // refresh save state indicators when auto-save completes
 
   function showView(view) {
     previousView.set($currentView);

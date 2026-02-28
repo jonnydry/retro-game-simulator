@@ -8,6 +8,7 @@
     score,
     isPaused,
     keys as keysStore,
+    saveStateRefreshTrigger,
     BUILTIN_GAMES
   } from '$lib/stores/gameStore.js';
   import { getSettings, getSaveStateMeta, setSaveStateMeta } from '$lib/services/storage.js';
@@ -122,7 +123,8 @@
     return `${Math.floor(sec / 86400)}d ago`;
   }
 
-  $: saveStateMeta = showEmulator && $currentRomId ? (romInfo, getSaveStateMeta($currentRomId)) : null;
+  $: saveStateMeta = showEmulator && $currentRomId ? getSaveStateMeta($currentRomId) : null;
+  $: _refreshSaveState = $saveStateRefreshTrigger;
   $: lastSavedText = saveStateMeta?.[0] ? formatTimeAgo(saveStateMeta[0]) : null;
 
   const CONTROL_GUIDES = {
@@ -181,7 +183,7 @@
 
   function handleEmulatorReset() {
     if (!resetEmulator()) {
-      romInfo = 'Reset control unavailable for this emulator core.';
+      romInfo = 'Reset not supported for this system.';
       return;
     }
     isPaused.set(false);
@@ -194,17 +196,20 @@
       ? await saveEmulatorStateAndCapture(romId, 0)
       : saveEmulatorState(0);
     if (!saved) {
-      romInfo = 'Save state is unavailable for this emulator core.';
+      romInfo = 'Save state not supported for this system.';
       return;
     }
-    if (romId) setSaveStateMeta(romId, 0);
+    if (romId) {
+      setSaveStateMeta(romId, 0);
+      saveStateRefreshTrigger.update((n) => n + 1);
+    }
     romInfo = 'Saved state slot 1';
     refreshEmulatorCapabilities();
   }
 
   function handleEmulatorLoadState() {
     if (!loadEmulatorState(0)) {
-      romInfo = 'Load state is unavailable for this emulator core.';
+      romInfo = 'Load state not supported for this system.';
       return;
     }
     romInfo = 'Loaded state slot 1';
@@ -214,7 +219,7 @@
 
   function handleEmulatorMenu() {
     if (!openEmulatorMenu()) {
-      romInfo = 'Emulator menu could not be opened.';
+      romInfo = 'Menu not available for this emulator.';
       return;
     }
     refreshEmulatorCapabilities();
@@ -299,7 +304,16 @@
   $: if (showEmulator) {
     refreshEmulatorCapabilities();
     if (!emulatorCapabilityPoll) {
-      emulatorCapabilityPoll = setInterval(refreshEmulatorCapabilities, 1000);
+      let pollCount = 0;
+      const maxPolls = 20;
+      emulatorCapabilityPoll = setInterval(() => {
+        refreshEmulatorCapabilities();
+        pollCount++;
+        if (emulatorCapabilities.canSaveState || emulatorCapabilities.canLoadState || pollCount >= maxPolls) {
+          clearInterval(emulatorCapabilityPoll);
+          emulatorCapabilityPoll = null;
+        }
+      }, 1500);
     }
   } else if (emulatorCapabilityPoll) {
     clearInterval(emulatorCapabilityPoll);

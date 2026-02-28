@@ -1,6 +1,6 @@
 <script>
   import { get } from 'svelte/store';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import { currentGame, currentRomId } from '$lib/stores/gameStore.js';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
@@ -40,6 +40,28 @@
     currentView.set(view);
   }
 
+  function waitForPlayViewApi(timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+      const deadline = Date.now() + timeoutMs;
+      const check = () => {
+        const fn = window.__playViewReady;
+        if (fn) {
+          const api = fn();
+          if (api) {
+            resolve(api);
+            return;
+          }
+        }
+        if (Date.now() >= deadline) {
+          reject(new Error('Play view not ready in time'));
+          return;
+        }
+        setTimeout(check, 50);
+      };
+      setTimeout(check, 0);
+    });
+  }
+
   async function handleLoadGame(id) {
     const romId = get(currentRomId);
     await attemptAutoSaveRomState(romId);
@@ -57,23 +79,21 @@
     currentGame.set(null);
     currentRomId.set(id);
     showView('play');
-    const playViewApi = await new Promise((resolve) => {
-      const check = () => {
-        const fn = window.__playViewReady;
-        if (fn) {
-          const api = fn();
-          if (api) resolve(api);
-          else setTimeout(check, 50);
-        } else setTimeout(check, 50);
-      };
-      setTimeout(check, 0);
-    });
+    let playViewApi;
+    try {
+      playViewApi = await waitForPlayViewApi(5000);
+    } catch {
+      currentRomId.set(null);
+      showView('emulator');
+      return;
+    }
     const rom = getRomFromLibrary(id);
     const romName = rom?.name || 'ROM';
     playViewApi?.setGameTitle?.(romName);
     playViewApi?.setCurrentRomSystem?.(rom?.system);
     playViewApi?.setEmulatorRunning?.(false);
     playViewApi?.refreshEmulatorCapabilities?.();
+    playViewApi?.setRomInfo?.('Loading ROM…');
     const loaded = await loadRomFromLibrary(id, {
       onGameStart: () => {
         playViewApi?.setRomInfo?.(`Playing: ${romName}`);
@@ -88,7 +108,7 @@
         await playViewApi?.promptResumeFromSave?.(opts);
       },
       onError: (msg) => {
-        playViewApi?.setRomInfo?.(msg || 'Error');
+        playViewApi?.setRomInfo?.(msg || 'Failed to load emulator');
         playViewApi?.setEmulatorRunning?.(false);
         playViewApi?.refreshEmulatorCapabilities?.();
       }
@@ -129,12 +149,14 @@
     romFileInput?.click();
   }
 
+  let beforeunloadHandler = null;
   onMount(async () => {
     window.__stopEmulator = stopEmulator;
-    window.addEventListener('beforeunload', () => {
+    beforeunloadHandler = () => {
       const romId = get(currentRomId);
       if (romId) attemptAutoSaveRomState(romId);
-    });
+    };
+    window.addEventListener('beforeunload', beforeunloadHandler);
     const dreamcastAvailable = await initializeDreamcastSupport();
     if (dreamcastAvailable) setDreamcastEnabled(true);
     await initRomStorage();
@@ -143,6 +165,13 @@
     const settings = getSettings();
     uiScale.set(settings.uiScale ?? 1.15);
     startWatching(settings.watchFoldersEnabled ?? false);
+  });
+
+  onDestroy(() => {
+    if (beforeunloadHandler) {
+      window.removeEventListener('beforeunload', beforeunloadHandler);
+      beforeunloadHandler = null;
+    }
   });
 
   async function handleRomFileChange(e) {
@@ -155,16 +184,14 @@
     if (!file) return;
     e.target.value = '';
     showView('play');
-    const playViewApi = await new Promise((resolve) => {
-      const check = () => {
-        if (window.__playViewReady) {
-          const api = window.__playViewReady();
-          if (api) resolve(api);
-          else setTimeout(check, 50);
-        } else setTimeout(check, 50);
-      };
-      setTimeout(check, 0);
-    });
+    let playViewApi;
+    try {
+      playViewApi = await waitForPlayViewApi(5000);
+    } catch {
+      showView('emulator');
+      return;
+    }
+    playViewApi?.setRomInfo?.('Loading ROM…');
     playViewApi?.setCurrentRomSystem?.(pendingRomPick.system);
     playViewApi?.setEmulatorRunning?.(false);
     playViewApi?.refreshEmulatorCapabilities?.();
@@ -182,7 +209,7 @@
         await playViewApi?.promptResumeFromSave?.(opts);
       },
       onError: (msg) => {
-        playViewApi?.setRomInfo?.(msg || 'Error');
+        playViewApi?.setRomInfo?.(msg || 'Failed to load emulator');
         playViewApi?.setEmulatorRunning?.(false);
         playViewApi?.refreshEmulatorCapabilities?.();
       }
