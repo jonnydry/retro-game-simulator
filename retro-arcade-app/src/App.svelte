@@ -1,4 +1,5 @@
 <script>
+  import { get } from 'svelte/store';
   import { onMount } from 'svelte';
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import { currentGame, currentRomId } from '$lib/stores/gameStore.js';
@@ -16,6 +17,7 @@
     loadRomFromLibrary,
     loadRomFromFile,
     stopEmulator,
+    attemptAutoSaveRomState
   } from '$lib/services/emulator.js';
   import { stopGameAudio } from '$lib/services/audio.js';
   import { getSettings, getRomFromLibrary } from '$lib/services/storage.js';
@@ -38,7 +40,9 @@
     currentView.set(view);
   }
 
-  function handleLoadGame(id) {
+  async function handleLoadGame(id) {
+    const romId = get(currentRomId);
+    await attemptAutoSaveRomState(romId);
     stopEmulator();
     stopGameAudio();
     currentGame.set(id);
@@ -47,6 +51,8 @@
   }
 
   async function handleLoadRom(id) {
+    const romIdToSave = get(currentRomId);
+    if (romIdToSave && romIdToSave !== id) await attemptAutoSaveRomState(romIdToSave);
     stopGameAudio();
     currentGame.set(null);
     currentRomId.set(id);
@@ -125,6 +131,10 @@
 
   onMount(async () => {
     window.__stopEmulator = stopEmulator;
+    window.addEventListener('beforeunload', () => {
+      const romId = get(currentRomId);
+      if (romId) attemptAutoSaveRomState(romId);
+    });
     const dreamcastAvailable = await initializeDreamcastSupport();
     if (dreamcastAvailable) setDreamcastEnabled(true);
     await initRomStorage();
@@ -136,6 +146,8 @@
   });
 
   async function handleRomFileChange(e) {
+    const romIdToSave = get(currentRomId);
+    if (romIdToSave) await attemptAutoSaveRomState(romIdToSave);
     stopGameAudio();
     currentGame.set(null);
     currentRomId.set(null);

@@ -23,9 +23,11 @@
     loadEmulatorState,
     openEmulatorMenu,
     resetEmulator,
+    saveEmulatorState,
     saveEmulatorStateAndCapture,
     setEmulatorPaused,
-    setEmulatorVolume
+    setEmulatorVolume,
+    attemptAutoSaveRomState
   } from '$lib/services/emulator.js';
 
   export let showView = (v) => {};
@@ -234,7 +236,8 @@
     syncTheaterClass();
   }
 
-  function exitGame() {
+  async function exitGame() {
+    await attemptAutoSaveRomState(get(currentRomId));
     closeTheaterMode();
     stopGameAudio();
     window.__stopEmulator?.();

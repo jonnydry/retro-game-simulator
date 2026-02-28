@@ -2,7 +2,8 @@ import {
   addToRomLibrary,
   getRomFromLibrary,
   getRomBlob,
-  updateRomLastPlayed
+  updateRomLastPlayed,
+  setSaveStateMeta
 } from '$lib/services/storage.js';
 import { getSaveStateBlob, saveSaveStateBlob } from '$lib/services/romStorage.js';
 import { DREAMCAST_SYSTEM_ID, defaultEnabledSystems, systemOrder } from '$lib/config/systems.js';
@@ -415,6 +416,22 @@ export async function saveEmulatorStateAndCapture(romId, slot = 0) {
     }
   }
   return true;
+}
+
+/**
+ * Auto-save the current ROM state when exiting or switching games.
+ * Silently skips if no romId, emulator lacks save support, or save fails.
+ */
+export async function attemptAutoSaveRomState(romId) {
+  if (!romId) return;
+  const caps = getEmulatorCapabilities();
+  if (!caps.canSaveState) return;
+  try {
+    const ok = await saveEmulatorStateAndCapture(romId, 0);
+    if (ok) setSaveStateMeta(romId, 0);
+  } catch (e) {
+    console.warn('Auto-save failed', e);
+  }
 }
 
 export function loadEmulatorState(slot = 0) {
