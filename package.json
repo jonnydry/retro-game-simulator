@@ -1,0 +1,7 @@
+{
+  "name": "retro-game-simulator",
+  "private": true,
+  "scripts": {
+    "build": "cd retro-arcade-app && npm ci && npm run build"
+  }
+}
