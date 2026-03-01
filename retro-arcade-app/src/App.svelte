@@ -111,6 +111,10 @@
         playViewApi?.setRomInfo?.(msg || 'Failed to load emulator');
         playViewApi?.setEmulatorRunning?.(false);
         playViewApi?.refreshEmulatorCapabilities?.();
+        playViewApi?.setShowEmulator?.(false);
+        playViewApi?.setShowPressStart?.(true);
+        currentRomId.set(null);
+        showView('emulator');
       }
     });
     if (!loaded) {
@@ -118,6 +122,7 @@
       playViewApi?.refreshEmulatorCapabilities?.();
       playViewApi?.setShowEmulator?.(false);
       playViewApi?.setShowPressStart?.(true);
+      currentRomId.set(null);
       showView('emulator');
       return;
     }
@@ -212,6 +217,10 @@
         playViewApi?.setRomInfo?.(msg || 'Failed to load emulator');
         playViewApi?.setEmulatorRunning?.(false);
         playViewApi?.refreshEmulatorCapabilities?.();
+        playViewApi?.setShowEmulator?.(false);
+        playViewApi?.setShowPressStart?.(true);
+        currentRomId.set(null);
+        showView('emulator');
       }
     });
     if (!result) {

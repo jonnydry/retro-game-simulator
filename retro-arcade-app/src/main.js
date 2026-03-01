@@ -3,7 +3,7 @@ import '@fontsource/vt323'
 import './app.css'
 import './styles/global.css'
 import App from './App.svelte'
-import { keys, currentGame, isPaused } from './lib/stores/gameStore.js'
+import { keys, currentGame, currentRomId, isPaused } from './lib/stores/gameStore.js'
 import { currentView } from './lib/stores/viewStore.js'
 
 const app = mount(App, {
@@ -19,10 +19,11 @@ const gamepadState = {
   Space: false
 }
 let publishedKeys = {}
-let _currentGame, _currentView, _isPaused
+let _currentGame, _currentView, _isPaused, _currentRomId
 currentGame.subscribe((v) => (_currentGame = v))
 currentView.subscribe((v) => (_currentView = v))
 isPaused.subscribe((v) => (_isPaused = v))
+currentRomId.subscribe((v) => (_currentRomId = v))
 
 function isEditableTarget(target) {
   return (
@@ -86,7 +87,8 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === ' ' || e.key === 'Space') && !e.repeat) {
     const builtin = ['pong', 'snake', 'breakout'].includes(_currentGame)
     const breakoutRunning = _currentGame === 'breakout' && !_isPaused && !document.querySelector('.press-start.show')
-    if (_currentView === 'play' && builtin && !breakoutRunning) {
+    const romActive = _currentRomId && _currentGame === null
+    if (_currentView === 'play' && !breakoutRunning && (builtin || romActive)) {
       window.__togglePause?.()
     }
   }

@@ -115,6 +115,12 @@
     emulatorCapabilities = emptyEmulatorCapabilities;
   }
 
+  // Auto-exit theater mode when loading Freedoom so controls remain visible (prevents getting stuck)
+  $: if (showFreedoom && theaterMode) {
+    theaterMode = false;
+    syncTheaterClass();
+  }
+
   $: if (gameInfo) gameTitle = gameInfo.name;
   $: keyboardHint =
     $currentGame === 'freedoom'
@@ -148,6 +154,10 @@
       { keys: ['←', '→'], action: 'Move paddle' },
       { keys: ['SPACE'], action: 'Launch ball' },
       { keys: ['SPACE'], action: 'Start/Pause' }
+    ],
+    freedoom: [
+      { keys: ['ESC'], action: 'Release cursor' },
+      { keys: ['Click'], action: 'Capture cursor to play' }
     ]
   };
 
@@ -251,7 +261,9 @@
 
   async function exitGame() {
     const wasFreedoom = get(currentGame) === 'freedoom';
-    await attemptAutoSaveRomState(get(currentRomId));
+    try {
+      await attemptAutoSaveRomState(get(currentRomId));
+    } catch (_) {}
     closeTheaterMode();
     stopGameAudio();
     if (wasFreedoom) {
@@ -269,7 +281,7 @@
     isEmulatorRunning = false;
     emulatorCapabilities = emptyEmulatorCapabilities;
     currentRomSystem = null;
-    showView($previousView ?? 'home');
+    showView(get(previousView) || 'home');
   }
 
   function showGameOverOverlay() {
@@ -418,6 +430,19 @@
 </script>
 
 <div class="main-view gameplay-view" class:theater-mode={theaterMode} style="display: flex; flex-direction: column; flex: 1;">
+  {#if showFreedoom}
+  <div class="freedoom-exit-bar freedoom-exit-bar-fixed" aria-label="Freedoom controls">
+    <span class="freedoom-exit-hint">Press Escape to release cursor</span>
+    <button
+      type="button"
+      class="freedoom-exit-btn"
+      on:click={exitGame}
+      aria-label="Exit Freedoom"
+    >
+      Exit
+    </button>
+  </div>
+  {/if}
   {#if theaterMode}
     <button
       type="button"
@@ -428,7 +453,9 @@
   {/if}
   <div class="game-header">
     <h1 class="game-title">{gameTitle}</h1>
+    {#if !showFreedoom}
     <div class="score-display">SCORE<span>{$score}</span></div>
+    {/if}
     {#if romInfo}
       <span style="font-size: 12px; margin-left: 12px; color: var(--text-secondary)">{romInfo}</span>
     {/if}
@@ -478,7 +505,7 @@
       </div>
     </div>
   </div>
-  <div class="controls-bar">
+  <div class="controls-bar" class:freedoom-active={showFreedoom}>
     {#if !showFreedoom}
     <button class="control-btn" on:click={togglePause} aria-label="Start or pause game">
       <span>{$isPaused ? '▶' : '⏸'}</span>
@@ -490,6 +517,7 @@
       class:active={soundOn}
       on:click={toggleSound}
       aria-label="Toggle sound effects"
+      title={showFreedoom ? 'Built-in sounds (Freedoom uses its own audio)' : 'Toggle sound effects'}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
@@ -539,6 +567,8 @@
       on:click={toggleTheaterMode}
       aria-label="Toggle theater mode"
       aria-pressed={theaterMode}
+      disabled={showFreedoom}
+      title={showFreedoom ? 'Theater mode disabled for Freedoom (cursor capture)' : 'Toggle theater mode'}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path
@@ -553,6 +583,7 @@
       </svg>
       Exit
     </button>
+    {#if !showFreedoom}
     <select
       class="resolution-select"
       aria-label="Select resolution scale"
@@ -570,6 +601,7 @@
       <option value="3x">3x</option>
       <option value="4x">4x</option>
     </select>
+    {/if}
     <span class="keyboard-hint">{keyboardHint}</span>
   </div>
   {#if showControlsGuide && $currentGame}
