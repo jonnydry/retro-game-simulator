@@ -102,6 +102,8 @@
       },
       onReady: async (opts) => {
         playViewApi?.setRomInfo?.(`Ready: ${romName}`);
+        playViewApi?.setShowEmulator?.(true);
+        playViewApi?.setShowPressStart?.(false);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
@@ -126,8 +128,6 @@
       showView('emulator');
       return;
     }
-    playViewApi?.setShowEmulator?.(true);
-    playViewApi?.setShowPressStart?.(false);
     playViewApi?.setEmulatorRunning?.(true);
     playViewApi?.refreshEmulatorCapabilities?.();
     playViewApi?.applyResolution?.();
@@ -208,6 +208,8 @@
       },
       onReady: async (opts) => {
         playViewApi?.setRomInfo?.(`Ready: ${file.name}`);
+        playViewApi?.setShowEmulator?.(true);
+        playViewApi?.setShowPressStart?.(false);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.applyResolution?.();
@@ -232,9 +234,7 @@
       return;
     }
     if (result.romId) currentRomId.set(result.romId);
-    playViewApi?.setShowEmulator?.(true);
     playViewApi?.setGameTitle?.(file.name.replace(/\.[^/.]+$/, ''));
-    playViewApi?.setShowPressStart?.(false);
     playViewApi?.setEmulatorRunning?.(true);
     playViewApi?.refreshEmulatorCapabilities?.();
     playViewApi?.applyResolution?.();
