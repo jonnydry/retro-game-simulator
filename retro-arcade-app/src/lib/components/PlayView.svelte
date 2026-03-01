@@ -485,7 +485,6 @@
       <div
         class="emulator-container"
         class:active={showEmulator}
-        style="display: {showEmulator ? 'flex' : 'none'}"
         bind:this={emulatorContainerEl}
       >
         <div id="emulator" bind:this={emulatorEl}></div>

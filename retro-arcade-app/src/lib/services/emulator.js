@@ -574,6 +574,10 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
     if (blob) loadStateUrl = URL.createObjectURL(blob);
   }
 
+  if (!window.crossOriginIsolated) {
+    window.EJS_threads = false;
+  }
+
   window.EJS_player = '#' + containerId;
   window.EJS_core = systemToCore[system];
   window.EJS_gameUrl = romUrl;
