@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# BIOS files are user-provided and must not be committed.
+public/dreamcast-data/bios/**
+!public/dreamcast-data/bios/
+!public/dreamcast-data/bios/dc/
+!public/dreamcast-data/bios/dc/README.txt

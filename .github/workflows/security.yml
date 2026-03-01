@@ -1,0 +1,43 @@
+name: Security Checks
+
+on:
+  push:
+    paths:
+      - 'retro-arcade-app/**'
+      - '.github/workflows/security.yml'
+  pull_request:
+    paths:
+      - 'retro-arcade-app/**'
+      - '.github/workflows/security.yml'
+  schedule:
+    - cron: '0 12 * * 1'
+
+jobs:
+  secure-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: retro-arcade-app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: retro-arcade-app/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Audit Production Dependencies
+        run: npm run audit:prod
+

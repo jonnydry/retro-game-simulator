@@ -7,6 +7,7 @@ import {
 } from '$lib/services/storage.js';
 import { getSaveStateBlob, saveSaveStateBlob } from '$lib/services/romStorage.js';
 import { DREAMCAST_SYSTEM_ID, defaultEnabledSystems, systemOrder } from '$lib/config/systems.js';
+import { MAX_ROM_FILE_SIZE_BYTES, formatBytes } from '$lib/config/security.js';
 import { romLibrary } from '$lib/stores/romLibraryStore.js';
 import { saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
 import { showAlert, showConfirm } from '$lib/services/dialog.js';
@@ -626,6 +627,15 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
 export async function loadRomFromFile(file, system, mode, callbacks) {
   if (!dreamcastSupportInitialized) {
     await initializeDreamcastSupport();
+  }
+
+  if (file.size > MAX_ROM_FILE_SIZE_BYTES) {
+    const message =
+      `ROM is too large (${formatBytes(file.size)}). ` +
+      `Maximum supported ROM size is ${formatBytes(MAX_ROM_FILE_SIZE_BYTES)}.`;
+    await showAlert(message);
+    callbacks?.onError?.(message);
+    return false;
   }
 
   if (!system) {

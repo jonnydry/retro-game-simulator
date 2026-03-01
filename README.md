@@ -1,16 +1,15 @@
 # Retro Arcade
 
-A browser-based retro game simulator combining built-in classic games, ROM emulation, and Freedoom—all playable in the browser.
+A browser-based retro game simulator combining built-in classic games and ROM emulation in a single-page Svelte app.
 
 ## Features
 
-- **15 built-in games**: Pong, Snake, Space Invaders, Tetris, Breakout, Asteroids, Neon Sprint, Frogger, Missile Command, Minesweeper, Pac-Man, Donkey Kong, Q*bert, Centipede, Galaga
+- **3 built-in games**: Pong, Snake, Breakout
 - **ROM emulation** (EmulatorJS): NES, SNES, Game Boy, GBA, Genesis, Master System, N64, PlayStation, PC Engine, Neo Geo Pocket, WonderSwan, and Dreamcast (optional setup)
-- **Freedoom**: Browser-based Doom via webdoom
 - **CRT-style visuals**: Scanlines, bezel effects, neon accents
-- **Mobile-friendly**: Touch controls, responsive sidebar
+- **Desktop-first UI**: Optimized for keyboard/gamepad play on desktop browsers
 - **Gamepad support** and keyboard controls
-- **ROM library**: Saved to localStorage with watch folder support
+- **ROM library**: Stored in IndexedDB with optional watch-folder import support
 
 ## Getting Started
 

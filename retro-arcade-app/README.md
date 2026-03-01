@@ -1,6 +1,6 @@
 # Retro Arcade App
 
-The Retro Arcade web application—built-in classic games, ROM emulation (EmulatorJS), and Freedoom in a single-page Svelte + Vite app.
+The Retro Arcade web application with built-in classic games and ROM emulation (EmulatorJS) in a single-page Svelte + Vite app.
 
 ## Quick Start
 
@@ -15,6 +15,8 @@ npm run dev
 |---------|-------------|
 | `npm run dev` | Start development server |
 | `npm run build` | Build for production |
+| `npm test` | Run smoke tests |
+| `npm run audit:prod` | Audit production dependencies for high-severity issues |
 | `npm run preview` | Preview production build |
 | `npm run setup-dreamcast` | Fetch and configure Dreamcast (flycast-wasm) support |
 
@@ -33,3 +35,13 @@ This downloads EmulatorJS files, the flycast core, and WebGL2 patches to `public
 - Svelte 5
 - Vite 7
 - EmulatorJS
+
+## Current Scope
+
+- Built-in games: Pong, Snake, Breakout
+- ROM library persistence: IndexedDB
+- Target platform: desktop browsers (keyboard + gamepad first)
+
+## Security
+
+- See [`SECURITY.md`](./SECURITY.md) for hardening details and operational checks.

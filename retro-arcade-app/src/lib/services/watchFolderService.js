@@ -6,6 +6,8 @@ import {
   isDreamcastAvailable
 } from '$lib/services/emulator.js';
 import { DREAMCAST_SYSTEM_ID } from '$lib/config/systems.js';
+import { MAX_ROM_FILE_SIZE_BYTES, formatBytes } from '$lib/config/security.js';
+import { inferSystemFromFolderPath } from '$lib/services/pathSystemInference.js';
 
 const DB_NAME = 'RetroArcadeWatch';
 const DB_VERSION = 1;
@@ -119,6 +121,11 @@ function gameBaseForDedupe(fileName) {
 
 async function importRomFromHandle(fileHandle, system) {
   const file = await fileHandle.getFile();
+  if (file.size > MAX_ROM_FILE_SIZE_BYTES) {
+    throw new Error(
+      `ROM too large (${formatBytes(file.size)}). Limit is ${formatBytes(MAX_ROM_FILE_SIZE_BYTES)}`
+    );
+  }
   const arrayBuffer = await file.arrayBuffer();
   /* Use full filename as name so "game.nes" and "game.zip" stay distinct */
   const romName = file.name;
@@ -133,12 +140,12 @@ export async function scanFolderForRoms(handle) {
     library.map((r) => `${r.system}|${gameBaseForDedupe(r.name)}`)
   );
 
-  const romFiles = await scanDirectory(handle);
+  const romFiles = await scanDirectory(handle, handle.name || '');
   const seenInScan = new Set(); // dedupe same file from root + subfolder
   let added = 0;
 
-  for (const { handle: fileHandle, name } of romFiles) {
-    const system = inferSystemFromFileName(name);
+  for (const { handle: fileHandle, name, path } of romFiles) {
+    const system = inferSystemFromFileName(name) || inferSystemFromFolderPath(path);
     if (!system) continue;
     if (system === DREAMCAST_SYSTEM_ID && !isDreamcastAvailable()) continue;
 

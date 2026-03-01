@@ -21,8 +21,8 @@
       --glass-bg: rgba(5, 5, 5, 0.9);
       --sidebar-width: 220px;
       --breakpoint-mobile: 768px;
-      --font-mono: 'IBM Plex Mono', 'Monaco', 'Consolas', monospace;
-      --font-display: 'VT323', 'IBM Plex Mono', monospace;
+      --font-mono: ui-monospace, 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', monospace;
+      --font-display: 'Courier New', 'Lucida Console', 'Monaco', monospace;
       --rainbow-1: #ccc;
       --rainbow-4: #fff;
       --rainbow-5: #fff;
@@ -1013,24 +1013,9 @@
     }
 
     @media (max-width: 768px) {
-      .sidebar {
-        position: fixed;
-        left: -300px;
-        top: 0;
-        bottom: 0;
-        z-index: 999;
-        transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        backdrop-filter: blur(20px);
-      }
-
-      .sidebar.open {
-        left: 0;
-      }
-
+      /* Keep desktop-style layout on narrow screens. */
       .mobile-menu-btn {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        display: none;
       }
 
       .logo {
@@ -1048,15 +1033,11 @@
       }
 
       .touch-controls {
-        display: flex;
-      }
-
-      .keyboard-hint {
         display: none;
       }
 
       .main-area {
-        padding: 70px 16px 100px;
+        padding: 16px;
       }
     }
 
