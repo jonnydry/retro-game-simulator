@@ -3,7 +3,7 @@ import { getSettings } from '$lib/services/storage.js';
 
 const initial = (() => {
   try {
-    return getSettings().sidebarCollapsed ?? false;
+    return getSettings().sidebarCollapsed ?? true;
   } catch {
     return false;
   }
