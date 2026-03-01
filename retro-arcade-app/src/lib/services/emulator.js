@@ -483,7 +483,7 @@ function revokeBlobUrl(url) {
   }
 }
 
-function silenceAndRemoveIframes(container) {
+export function silenceAndRemoveIframes(container) {
   const iframes = container
     ? Array.from(container.querySelectorAll('iframe'))
     : Array.from(document.querySelectorAll('.app-container iframe'));

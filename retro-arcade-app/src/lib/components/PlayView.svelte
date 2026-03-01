@@ -9,7 +9,8 @@
     isPaused,
     keys as keysStore,
     saveStateRefreshTrigger,
-    BUILTIN_GAMES
+    BUILTIN_GAMES,
+    FREEDOOM_GAME
   } from '$lib/stores/gameStore.js';
   import { getSettings, getSaveStateMeta, setSaveStateMeta } from '$lib/services/storage.js';
   import { showConfirm } from '$lib/services/dialog.js';
@@ -28,7 +29,8 @@
     saveEmulatorStateAndCapture,
     setEmulatorPaused,
     setEmulatorVolume,
-    attemptAutoSaveRomState
+    attemptAutoSaveRomState,
+    silenceAndRemoveIframes
   } from '$lib/services/emulator.js';
 
   export let showView = (v) => {};
@@ -67,7 +69,10 @@
   function applyResolution() {
     if (!crtFrameEl) return;
 
-    if (showEmulator && currentRomSystem) {
+    if (showFreedoom) {
+      crtFrameEl.style.maxWidth = '100%';
+      crtFrameEl.style.maxHeight = '100%';
+    } else if (showEmulator && currentRomSystem) {
       const size = getResolutionSize(currentRomSystem);
       if (size && emulatorEl) {
         emulatorEl.style.width = size.width + 'px';
@@ -101,8 +106,9 @@
   }
 
   $: isBuiltinGame = $currentGame && BUILTIN_IDS.includes($currentGame);
-  $: gameInfo = BUILTIN_GAMES.find((g) => g.id === $currentGame);
-  $: if ($currentGame && BUILTIN_IDS.includes($currentGame)) {
+  $: showFreedoom = $currentGame === 'freedoom';
+  $: gameInfo = BUILTIN_GAMES.find((g) => g.id === $currentGame) || ($currentGame === 'freedoom' ? FREEDOOM_GAME : null);
+  $: if ($currentGame && (BUILTIN_IDS.includes($currentGame) || $currentGame === 'freedoom')) {
     showEmulator = false;
     currentRomSystem = null;
     isEmulatorRunning = false;
@@ -111,9 +117,11 @@
 
   $: if (gameInfo) gameTitle = gameInfo.name;
   $: keyboardHint =
-    $currentGame === 'breakout'
-      ? 'Press SPACE to launch'
-      : `Press SPACE to ${$isPaused ? 'start' : 'pause'}`;
+    $currentGame === 'freedoom'
+      ? 'Press Escape to release cursor'
+      : $currentGame === 'breakout'
+        ? 'Press SPACE to launch'
+        : `Press SPACE to ${$isPaused ? 'start' : 'pause'}`;
 
   function formatTimeAgo(ts) {
     const sec = Math.floor((Date.now() - ts) / 1000);
@@ -242,9 +250,14 @@
   }
 
   async function exitGame() {
+    const wasFreedoom = get(currentGame) === 'freedoom';
     await attemptAutoSaveRomState(get(currentRomId));
     closeTheaterMode();
     stopGameAudio();
+    if (wasFreedoom) {
+      const c = document.querySelector('.freedoom-container');
+      if (c) silenceAndRemoveIframes(c);
+    }
     window.__stopEmulator?.();
     currentGame.set(null);
     currentRomId.set(null);
@@ -428,9 +441,9 @@
         width="640"
         height="480"
         aria-label="Game display"
-        style="display: {showEmulator ? 'none' : 'block'}"
+        style="display: {showEmulator || showFreedoom ? 'none' : 'block'}"
       ></canvas>
-      <div class="press-start" class:show={showPressStart && $currentGame && !showGameOver}>
+      <div class="press-start" class:show={showPressStart && $currentGame && !showGameOver && !showFreedoom}>
         <div class="press-start-text">PRESS START</div>
         <div class="coin-slot">◄ INSERT COIN ►</div>
       </div>
@@ -450,13 +463,28 @@
       >
         <div id="emulator" bind:this={emulatorEl}></div>
       </div>
+      <div
+        class="freedoom-container"
+        class:active={showFreedoom}
+        style="display: {showFreedoom ? 'flex' : 'none'}"
+        aria-label="Freedoom game display"
+      >
+        <iframe
+          src="https://obsidian-level-maker.github.io/play.html"
+          title="Freedoom"
+          allow="gamepad"
+          class="freedoom-iframe"
+        ></iframe>
+      </div>
     </div>
   </div>
   <div class="controls-bar">
+    {#if !showFreedoom}
     <button class="control-btn" on:click={togglePause} aria-label="Start or pause game">
       <span>{$isPaused ? '▶' : '⏸'}</span>
       <span>{$isPaused ? 'START' : 'PAUSE'}</span>
     </button>
+    {/if}
     <button
       class="control-btn"
       class:active={soundOn}
