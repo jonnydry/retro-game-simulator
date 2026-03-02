@@ -6,9 +6,7 @@
 
 <div class="main-view" style="display: flex; flex-direction: column; flex: 1;">
   <div style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px">
-    <h1 style="font-family: var(--font-display); font-size: 28px; color: var(--text-primary); margin-bottom: 24px">
-      Select a Game
-    </h1>
+    <h1 class="home-title">Select a Game</h1>
     <div class="game-list" style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 600px">
       {#each BUILTIN_GAMES as game}
         <div

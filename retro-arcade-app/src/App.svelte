@@ -178,7 +178,7 @@
     romLibrary.refresh();
     storageReady = true;
     const settings = getSettings();
-    uiScale.set(settings.uiScale ?? 1.15);
+    uiScale.set(settings.uiScale ?? 1.25);
     startWatching(settings.watchFoldersEnabled ?? false);
     const pendingRomId = getPendingRomId();
     if (pendingRomId) {

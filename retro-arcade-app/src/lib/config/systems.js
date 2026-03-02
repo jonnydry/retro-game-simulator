@@ -8,8 +8,8 @@ export const systemOrder = [
 export const defaultEnabledSystems = [...systemOrder];
 
 export const systemDisplayNames = {
-  nes: 'NES', snes: 'SNES', gb: 'Game Boy', gbc: 'Game Boy Color',
-  gba: 'Game Boy Advance', genesis: 'Genesis', sms: 'Master System',
+  nes: 'NES', snes: 'SNES', gb: 'Game Boy', gbc: 'GBC',
+  gba: 'GBA', genesis: 'Genesis', sms: 'Master System',
   n64: 'N64', psx: 'PlayStation', pce: 'PC Engine',
   ngp: 'Neo Geo Pocket', ws: 'WonderSwan',
   [DREAMCAST_SYSTEM_ID]: 'Dreamcast'

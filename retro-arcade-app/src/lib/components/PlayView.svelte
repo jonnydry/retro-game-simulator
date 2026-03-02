@@ -428,7 +428,7 @@
     <h1 class="game-title">{gameTitle}</h1>
     <div class="score-display">SCORE<span>{$score}</span></div>
     {#if romInfo}
-      <span style="font-size: 12px; margin-left: 12px; color: var(--text-secondary)">{romInfo}</span>
+      <span class="rom-info-hint">{romInfo}</span>
     {/if}
   </div>
   <div class="game-container">

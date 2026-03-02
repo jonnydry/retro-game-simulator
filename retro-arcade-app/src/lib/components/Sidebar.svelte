@@ -102,7 +102,7 @@
     <div class="section-title" style="margin-top:16px">Recently Added</div>
     <div class="sidebar-library sidebar-library-simple">
       {#if recentlyAddedRoms.length === 0}
-        <p class="library-empty-hint" style="color:var(--text-muted);font-size:11px;padding:8px 0">No ROMs yet</p>
+        <p class="library-empty-hint" style="color: var(--text-muted); padding: 8px 0">No ROMs yet</p>
       {:else}
         {#each recentlyAddedRoms as rom}
           <div

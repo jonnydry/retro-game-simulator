@@ -64,7 +64,7 @@
   <div class="dialog-panel" style="min-width: 320px">
     <h2 class="dialog-title">Import or Run ROM</h2>
     <div style="margin: 16px 0">
-      <label for="romDialogSystem" style="display: block; margin-bottom: 6px; font-size: 13px">System</label>
+      <label for="romDialogSystem" class="dialog-label">System</label>
       <select
         id="romDialogSystem"
         class="control-btn"

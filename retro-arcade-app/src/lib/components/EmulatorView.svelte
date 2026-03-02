@@ -63,26 +63,27 @@
       <img src="/logo-icon-96.png" alt="" class="emulator-logo-icon" aria-hidden="true" />
       <span class="logo-emu">Emu</span><span>Phoria</span>
     </div>
-    <div class="section-title" style="margin-bottom: 12px">Systems</div>
-    <div class="system-cards-grid">
-      {#each $enabledSystems as sys}
-        <div
-          class="system-card"
-          role="button"
-          tabindex="0"
-          on:click={() => onOpenRomDialog(sys)}
-          on:keydown={(e) => handleActivateKey(e, () => onOpenRomDialog(sys))}
-        >
-          <div class="system-card-icon">{@html systemIcons[sys] || ''}</div>
-          <div class="system-card-name">{systemDisplayNames[sys] || sys.toUpperCase()}</div>
-          <div class="system-card-count">{countBySystem[sys] || 0} ROM{(countBySystem[sys] || 0) !== 1 ? 's' : ''}</div>
+    <div class="systems-roulette-wrapper">
+      <nav class="systems-roulette-bar" aria-label="Game systems">
+        <div class="systems-roulette-track">
+          {#each $enabledSystems as sys}
+            <button
+              type="button"
+              class="system-chip"
+              on:click={() => onOpenRomDialog(sys)}
+            >
+              <span class="system-chip-icon">{@html systemIcons[sys] || ''}</span>
+              <span class="system-chip-count">{countBySystem[sys] || 0} ROM{(countBySystem[sys] || 0) !== 1 ? 's' : ''}</span>
+              <span class="system-chip-label">{systemDisplayNames[sys] || sys.toUpperCase()}</span>
+            </button>
+          {/each}
         </div>
-      {/each}
+      </nav>
     </div>
     <div class="section-title" style="margin-top: 24px; margin-bottom: 12px">My Library</div>
     <div class="library-by-system">
       {#if $romLibrary.length === 0}
-        <p class="library-empty-hint" style="color: var(--text-secondary); font-size: 14px">No ROMs yet. Click a system card above to import or run a ROM.</p>
+        <p class="library-empty-hint" style="color: var(--text-secondary)">No ROMs yet. Click a system above to import or run a ROM.</p>
       {:else}
         {#each $enabledSystems as sys}
           {#if (libraryBySystem[sys] || []).length > 0}

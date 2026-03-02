@@ -46,7 +46,7 @@ export function getSettings() {
     showHints: true,
     difficulty: 'normal',
     resolution: 'auto',
-    uiScale: 1.15,
+    uiScale: 1.25,
     sidebarCollapsed: true,
     myGamesExpanded: false,
     watchFoldersEnabled: false

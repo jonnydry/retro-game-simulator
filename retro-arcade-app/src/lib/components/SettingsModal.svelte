@@ -31,7 +31,7 @@
     const settings = getSettings();
     soundEnabled = settings.soundEnabled ?? false;
     showHints = settings.showHints ?? true;
-    uiScale.set(settings.uiScale ?? 1.15);
+    uiScale.set(settings.uiScale ?? 1.25);
     watchFoldersEnabled = settings.watchFoldersEnabled ?? false;
     updateHighScoresList();
     updateGamepadStatus();
@@ -191,7 +191,7 @@
           <label class="settings-row" style="margin-top: 12px">
             <span>UI Scale</span>
             <select
-              style="padding: 6px 10px; font-size: 13px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: 4px"
+              class="settings-select"
               value={$uiScale}
               on:change={(e) => {
                 const v = parseFloat(e.currentTarget.value);
@@ -207,11 +207,11 @@
         </div>
         <div class="settings-section">
           <h3>ROM Folders</h3>
-          <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 10px">
+          <p class="settings-description" style="margin-bottom: 10px">
             Automatically import new ROMs from local folders. Requires Chrome or Edge.
           </p>
           {#if !isSupported()}
-            <p style="color: var(--text-secondary); font-size: 13px">File System Access API not supported in this browser.</p>
+            <p class="settings-description" style="color: var(--text-secondary)">File System Access API not supported in this browser.</p>
           {:else}
             <label class="settings-toggle">
               <span>Watch folders for new ROMs</span>
@@ -220,15 +220,15 @@
             </label>
             <div class="watch-folders-list" style="margin-top: 10px">
               {#if watchedFoldersList.length === 0}
-                <p style="color: var(--text-muted); font-size: 12px; padding: 8px 0">No folders added yet. Click "Add Folder" to select a directory.</p>
+                <p class="settings-description" style="padding: 8px 0">No folders added yet. Click "Add Folder" to select a directory.</p>
               {:else}
               {#each watchedFoldersList as folder}
                 <div class="watch-folder-item" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px dotted var(--border-subtle)">
-                  <span style="font-size: 13px; color: var(--text-primary)">{folder.name}</span>
+                  <span style="font-size: var(--text-sm); color: var(--text-primary)">{folder.name}</span>
                   <button
                     type="button"
                     class="control-btn"
-                    style="padding: 4px 10px; font-size: 11px"
+                    style="padding: 4px 10px; font-size: var(--text-xs)"
                     on:click={() => handleRemoveFolder(folder.id)}
                   >
                     Remove
@@ -244,10 +244,10 @@
               </button>
             </div>
             {#if watchFolderError}
-              <p style="color: var(--accent-tertiary); font-size: 12px; margin-top: 6px">{watchFolderError}</p>
+              <p class="settings-description" style="color: var(--accent-tertiary); margin-top: 6px">{watchFolderError}</p>
             {/if}
             {#if scanStatus}
-              <p style="color: var(--accent-primary); font-size: 12px; margin-top: 6px">{scanStatus}</p>
+              <p class="settings-description" style="color: var(--accent-primary); margin-top: 6px">{scanStatus}</p>
             {/if}
           {/if}
         </div>
@@ -265,10 +265,10 @@
             >
               Scan for Gamepads
             </button>
-            <p style="color: var(--text-muted); font-size: 11px; margin-top: 8px; line-height: 1.4">
+            <p class="settings-note" style="margin-top: 8px">
               If your gamepad doesn't appear: press any button or move a stick <em>while this page is open</em>, then click Scan again. Chrome and Edge require gamepad interaction before detecting it.
             </p>
-            <p style="color: var(--text-muted); font-size: 11px; margin-top: 6px; line-height: 1.4">
+            <p class="settings-note" style="margin-top: 6px">
               Modern pads (Xbox, DualSense, Switch Pro/8BitDo) are supported through the browser Gamepad API.
             </p>
           </div>
@@ -277,7 +277,7 @@
           <h3>High Scores</h3>
           <div class="high-scores-list">
             {#if highScoresList.length === 0}
-              <p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px">
+              <p class="settings-description" style="text-align: center; padding: 20px">
                 No high scores yet
               </p>
             {:else}
@@ -293,7 +293,7 @@
         </div>
         <div class="settings-section">
           <h3>About</h3>
-          <p style="color: var(--text-secondary); font-size: 13px">EmuPhoria v1.0<br />Classic games simulator</p>
+          <p class="settings-description" style="color: var(--text-secondary)">EmuPhoria v1.0<br />Classic games simulator</p>
         </div>
       </div>
     </div>
