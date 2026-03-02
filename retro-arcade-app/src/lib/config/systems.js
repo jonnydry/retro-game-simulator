@@ -29,7 +29,6 @@ export const nativeResolutions = {
   ngp: { width: 160, height: 152 },
   ws: { width: 224, height: 144 },
   [DREAMCAST_SYSTEM_ID]: { width: 640, height: 480 },
-  freedoom: { width: 320, height: 200 },
   builtin: { width: 640, height: 480 }
 };
 

@@ -574,9 +574,9 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
     if (blob) loadStateUrl = URL.createObjectURL(blob);
   }
 
-  if (!window.crossOriginIsolated) {
-    window.EJS_threads = false;
-  }
+  // Disable threading to avoid "Decompress Game Core" hangs; single-threaded decompression
+  // is slower but more reliable across browsers and deployment environments (e.g. Vercel).
+  window.EJS_threads = false;
 
   window.EJS_player = '#' + containerId;
   window.EJS_core = systemToCore[system];

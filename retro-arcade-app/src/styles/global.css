@@ -783,11 +783,6 @@
       border: 1px dotted var(--border-dot);
     }
 
-    .controls-bar.freedoom-active {
-      position: relative;
-      z-index: 100;
-    }
-
     .press-start {
       position: absolute;
       top: 50%;
@@ -1145,71 +1140,6 @@
       height: 100%;
       max-width: 100%;
       max-height: 100%;
-    }
-
-    .freedoom-container {
-      width: 100%;
-      height: 100%;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-
-    .freedoom-container.active {
-      display: flex;
-    }
-
-    .freedoom-container .freedoom-iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      max-width: 100%;
-      max-height: 100%;
-      background: #000;
-    }
-
-    .freedoom-exit-bar {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 12px;
-      background: rgba(0, 0, 0, 0.85);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      pointer-events: auto;
-    }
-
-    .freedoom-exit-bar-fixed {
-      position: fixed;
-      top: 16px;
-      right: 24px;
-      z-index: 9999;
-    }
-
-    .freedoom-exit-hint {
-      font-size: 11px;
-      color: var(--text-secondary);
-    }
-
-    .freedoom-exit-btn {
-      padding: 6px 12px;
-      background: var(--accent-primary);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .freedoom-exit-btn:hover {
-      filter: brightness(1.15);
     }
 
     .system-cards-grid {

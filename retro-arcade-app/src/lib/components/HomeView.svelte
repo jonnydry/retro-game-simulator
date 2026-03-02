@@ -1,5 +1,5 @@
 <script>
-  import { BUILTIN_GAMES, FREEDOOM_GAME } from '$lib/stores/gameStore.js';
+  import { BUILTIN_GAMES } from '$lib/stores/gameStore.js';
 
   export let onLoadGame = (id) => {};
 </script>
@@ -10,7 +10,7 @@
       Select a Game
     </h1>
     <div class="game-list" style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 600px">
-      {#each [...BUILTIN_GAMES, FREEDOOM_GAME] as game}
+      {#each BUILTIN_GAMES as game}
         <div
           class="game-card"
           role="button"

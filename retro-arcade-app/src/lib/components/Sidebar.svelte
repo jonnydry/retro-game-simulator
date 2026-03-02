@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { BUILTIN_GAMES, FREEDOOM_GAME, saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
+  import { BUILTIN_GAMES, saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
@@ -83,7 +83,7 @@
       </svg>
     </button>
     <div class="game-list" class:collapsed={!myGamesExpanded}>
-      {#each [...BUILTIN_GAMES, FREEDOOM_GAME] as game}
+      {#each BUILTIN_GAMES as game}
         <div
           class="game-card"
           role="button"
