@@ -5,6 +5,7 @@
   import {
     currentGame,
     currentRomId,
+    pendingRomLoadId,
     score,
     isPaused,
     keys as keysStore,
@@ -226,6 +227,10 @@
     refreshEmulatorCapabilities();
   }
 
+  function handleEmulatorOverlayClick() {
+    if (emulatorNeedsInteraction) emulatorNeedsInteraction = false;
+  }
+
   function syncTheaterClass() {
     const appRoot = document.querySelector('.app-container');
     if (appRoot) appRoot.classList.toggle('theater-mode', theaterMode);
@@ -249,6 +254,8 @@
     closeTheaterMode();
     stopGameAudio();
     window.__stopEmulator?.();
+    window.__onStartPendingRomLoad = null;
+    pendingRomLoadId.set(null);
     currentGame.set(null);
     currentRomId.set(null);
     isPaused.set(true);
@@ -425,6 +432,16 @@
     {/if}
   </div>
   <div class="game-container">
+    {#if $pendingRomLoadId}
+      <button
+        type="button"
+        class="rom-load-overlay"
+        on:click={() => window.__onStartPendingRomLoad?.()}
+        aria-label="Click to load game"
+      >
+        Click to load game
+      </button>
+    {/if}
     <div class="game-frame" id="crtFrame" bind:this={crtFrameEl}>
       <canvas
         bind:this={canvasEl}
@@ -446,21 +463,18 @@
         {/if}
         <button class="restart-btn" on:click={restartGame}>Play Again</button>
       </div>
+      <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
       <div
         class="emulator-container"
         class:active={showEmulator}
         bind:this={emulatorContainerEl}
+        on:click|capture={handleEmulatorOverlayClick}
       >
         <div id="emulator" bind:this={emulatorEl}></div>
         {#if showEmulator && emulatorNeedsInteraction}
-          <button
-            type="button"
-            class="emulator-click-overlay"
-            on:click={() => (emulatorNeedsInteraction = false)}
-            aria-label="Click to start game"
-          >
+          <div class="emulator-click-overlay" aria-hidden="true">
             Click to start
-          </button>
+          </div>
         {/if}
       </div>
     </div>

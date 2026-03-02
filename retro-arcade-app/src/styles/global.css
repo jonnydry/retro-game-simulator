@@ -411,9 +411,9 @@
     }
     .sidebar-rom-item .rom-thumbnail {
       position: relative;
-      width: 40px;
-      height: 40px;
-      min-width: 40px;
+      width: 56px;
+      height: 56px;
+      min-width: 56px;
       flex-shrink: 0;
       border-radius: 4px;
       overflow: hidden;
@@ -434,8 +434,8 @@
       color: var(--text-muted);
     }
     .sidebar-rom-item .rom-thumbnail-fallback svg {
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
     }
     .sidebar-rom-item .rom-thumbnail-placeholder {
       font-size: 18px;
@@ -709,9 +709,9 @@
       align-items: center;
       justify-content: center;
       background: var(--bg-secondary);
+      position: relative;
       border: 2px dotted var(--border-dot);
       padding: 16px;
-      position: relative;
       min-height: 0;
       overflow: hidden;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
@@ -781,6 +781,27 @@
       background: var(--bg-secondary);
       border-radius: 0;
       border: 1px dotted var(--border-dot);
+    }
+
+    .rom-load-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      border: none;
+      z-index: 100;
+    }
+
+    .rom-load-overlay:hover {
+      background: rgba(0, 0, 0, 0.9);
     }
 
     .press-start {
@@ -1154,14 +1175,8 @@
       font-size: 20px;
       font-weight: 600;
       letter-spacing: 0.1em;
-      cursor: pointer;
-      border: none;
       z-index: 50;
-      transition: opacity 0.2s;
-    }
-
-    .emulator-click-overlay:hover {
-      background: rgba(0, 0, 0, 0.8);
+      pointer-events: none;
     }
 
     .system-cards-grid {
@@ -1297,9 +1312,9 @@
     }
     .library-rom-item .library-rom-thumbnail {
       position: relative;
-      width: 48px;
-      height: 48px;
-      min-width: 48px;
+      width: 72px;
+      height: 72px;
+      min-width: 72px;
       flex-shrink: 0;
       border-radius: 4px;
       overflow: hidden;
@@ -1320,8 +1335,8 @@
       color: var(--text-muted);
     }
     .library-rom-item .library-rom-thumbnail-fallback svg {
-      width: 28px;
-      height: 28px;
+      width: 40px;
+      height: 40px;
     }
     .library-rom-item .library-rom-thumbnail-placeholder {
       font-size: 11px;
