@@ -707,9 +707,32 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
   return { loaded: true, romId };
 }
 
+const PENDING_ROM_KEY = 'emumphoria_pendingRomId';
+
+export function getPendingRomId() {
+  try {
+    const id = sessionStorage.getItem(PENDING_ROM_KEY);
+    if (id) {
+      sessionStorage.removeItem(PENDING_ROM_KEY);
+      return id;
+    }
+  } catch (_) {}
+  return null;
+}
+
 export async function loadRomFromLibrary(romId, callbacks) {
   if (!dreamcastSupportInitialized) {
     await initializeDreamcastSupport();
+  }
+
+  // EmulatorJS cannot be reloaded; re-running would cause "EJS_STORAGE already declared".
+  // Reload the page so we get a fresh JS context, then load this ROM on init.
+  if (getEmulatorInstance()) {
+    try {
+      sessionStorage.setItem(PENDING_ROM_KEY, romId);
+    } catch (_) {}
+    window.location.reload();
+    return { needReload: true, romId };
   }
 
   const rom = getRomFromLibrary(romId);

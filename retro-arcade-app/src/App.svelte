@@ -13,6 +13,7 @@
   import SettingsModal from '$lib/components/SettingsModal.svelte';
   import {
     getEnabledSystemExtensions,
+    getPendingRomId,
     initializeDreamcastSupport,
     loadRomFromLibrary,
     loadRomFromFile,
@@ -119,6 +120,9 @@
         showView('emulator');
       }
     });
+    if (loaded && typeof loaded === 'object' && loaded.needReload) {
+      return; // Page is reloading to load the ROM
+    }
     if (!loaded) {
       playViewApi?.setEmulatorRunning?.(false);
       playViewApi?.refreshEmulatorCapabilities?.();
@@ -170,6 +174,12 @@
     const settings = getSettings();
     uiScale.set(settings.uiScale ?? 1.15);
     startWatching(settings.watchFoldersEnabled ?? false);
+    const pendingRomId = getPendingRomId();
+    if (pendingRomId) {
+      currentRomId.set(pendingRomId);
+      showView('play');
+      setTimeout(() => handleLoadRom(pendingRomId), 0);
+    }
   });
 
   onDestroy(() => {

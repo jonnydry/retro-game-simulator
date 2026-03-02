@@ -54,6 +54,7 @@
   let onGlobalKeydown = null;
   let emulatorCapabilities = emptyEmulatorCapabilities;
   let emulatorCapabilityPoll = null;
+  let emulatorNeedsInteraction = true; // Requires user click to wake throttled tabs and satisfy autoplay
 
   const BUILTIN_IDS = ['pong', 'snake', 'breakout'];
 
@@ -336,6 +337,7 @@
       setGameTitle: (text) => (gameTitle = text),
       setShowEmulator: (v) => {
         showEmulator = v;
+        emulatorNeedsInteraction = v; // Reset when showing emulator so overlay appears
         isPaused.set(!v);
         if (!v) {
           currentRomSystem = null;
@@ -450,6 +452,16 @@
         bind:this={emulatorContainerEl}
       >
         <div id="emulator" bind:this={emulatorEl}></div>
+        {#if showEmulator && emulatorNeedsInteraction}
+          <button
+            type="button"
+            class="emulator-click-overlay"
+            on:click={() => (emulatorNeedsInteraction = false)}
+            aria-label="Click to start game"
+          >
+            Click to start
+          </button>
+        {/if}
       </div>
     </div>
   </div>
