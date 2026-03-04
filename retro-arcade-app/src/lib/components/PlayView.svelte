@@ -19,6 +19,8 @@
   import { runGame } from '$lib/games/gameRunner.js';
   import { nativeResolutions } from '$lib/config/systems.js';
   import { saveSettings } from '$lib/services/storage.js';
+  import { setTouchKey } from '$lib/input/touchKeys.js';
+  import { isMobile } from '$lib/utils/mobile.js';
   import {
     emptyEmulatorCapabilities,
     getEmulatorCapabilities,
@@ -58,6 +60,31 @@
   let emulatorNeedsInteraction = true; // Requires user click to wake throttled tabs and satisfy autoplay
 
   const BUILTIN_IDS = ['pong', 'snake', 'breakout'];
+
+  $: showTouchControls = isBuiltinGame && ('ontouchstart' in window || isMobile());
+
+  function setKeyPressed(key, pressed) {
+    setTouchKey(key, pressed);
+    if (key === ' ' || key === 'Space') {
+      setTouchKey(' ', pressed);
+      setTouchKey('Space', pressed);
+    }
+  }
+  function touchDown(key) {
+    return (e) => {
+      e.preventDefault();
+      setKeyPressed(key, true);
+    };
+  }
+  function touchUp(key) {
+    return (e) => {
+      e.preventDefault();
+      setKeyPressed(key, false);
+    };
+  }
+  function touchRelease(key) {
+    return () => setKeyPressed(key, false);
+  }
 
   function getResolutionSize(system) {
     const native = nativeResolutions[system] || nativeResolutions.builtin;
@@ -442,7 +469,7 @@
         Click to load game
       </button>
     {/if}
-    <div class="game-frame" id="crtFrame" bind:this={crtFrameEl}>
+    <div class="game-frame" id="crtFrame" bind:this={crtFrameEl} data-rom-system={currentRomSystem || ($currentGame ? 'builtin' : null)}>
       <canvas
         bind:this={canvasEl}
         id="gameCanvas"
@@ -584,6 +611,34 @@
           </div>
         {/each}
       </div>
+    </div>
+  {/if}
+  {#if showTouchControls && $currentGame && !showGameOver}
+    <div class="touch-controls visible" class:pong={$currentGame === 'pong'} class:snake={$currentGame === 'snake'} class:breakout={$currentGame === 'breakout'} role="group" aria-label="Touch controls">
+      {#if $currentGame === 'pong'}
+        <div class="touch-controls-pong">
+          <button type="button" class="touch-btn" aria-label="Up" on:pointerdown={touchDown('ArrowUp')} on:pointerup={touchUp('ArrowUp')} on:pointerleave={touchRelease('ArrowUp')} on:pointercancel={touchRelease('ArrowUp')} on:contextmenu|preventDefault>↑</button>
+          <button type="button" class="touch-btn" aria-label="Down" on:pointerdown={touchDown('ArrowDown')} on:pointerup={touchUp('ArrowDown')} on:pointerleave={touchRelease('ArrowDown')} on:pointercancel={touchRelease('ArrowDown')} on:contextmenu|preventDefault>↓</button>
+        </div>
+      {:else if $currentGame === 'snake'}
+        <div class="touch-controls-snake">
+          <div class="touch-dpad touch-dpad-cross">
+            <button type="button" class="touch-btn touch-dpad-up" aria-label="Up" on:pointerdown={touchDown('ArrowUp')} on:pointerup={touchUp('ArrowUp')} on:pointerleave={touchRelease('ArrowUp')} on:pointercancel={touchRelease('ArrowUp')} on:contextmenu|preventDefault>↑</button>
+            <button type="button" class="touch-btn touch-dpad-left" aria-label="Left" on:pointerdown={touchDown('ArrowLeft')} on:pointerup={touchUp('ArrowLeft')} on:pointerleave={touchRelease('ArrowLeft')} on:pointercancel={touchRelease('ArrowLeft')} on:contextmenu|preventDefault>←</button>
+            <button type="button" class="touch-btn touch-dpad-right" aria-label="Right" on:pointerdown={touchDown('ArrowRight')} on:pointerup={touchUp('ArrowRight')} on:pointerleave={touchRelease('ArrowRight')} on:pointercancel={touchRelease('ArrowRight')} on:contextmenu|preventDefault>→</button>
+            <button type="button" class="touch-btn touch-dpad-down" aria-label="Down" on:pointerdown={touchDown('ArrowDown')} on:pointerup={touchUp('ArrowDown')} on:pointerleave={touchRelease('ArrowDown')} on:pointercancel={touchRelease('ArrowDown')} on:contextmenu|preventDefault>↓</button>
+          </div>
+          <button type="button" class="touch-btn touch-btn-action" aria-label="Pause" on:pointerdown={touchDown(' ')} on:pointerup={touchUp(' ')} on:pointerleave={touchRelease(' ')} on:pointercancel={touchRelease(' ')} on:contextmenu|preventDefault>⏸</button>
+        </div>
+      {:else if $currentGame === 'breakout'}
+        <div class="touch-controls-breakout">
+          <div class="touch-dpad touch-dpad-horizontal">
+            <button type="button" class="touch-btn" aria-label="Left" on:pointerdown={touchDown('ArrowLeft')} on:pointerup={touchUp('ArrowLeft')} on:pointerleave={touchRelease('ArrowLeft')} on:pointercancel={touchRelease('ArrowLeft')} on:contextmenu|preventDefault>←</button>
+            <button type="button" class="touch-btn" aria-label="Right" on:pointerdown={touchDown('ArrowRight')} on:pointerup={touchUp('ArrowRight')} on:pointerleave={touchRelease('ArrowRight')} on:pointercancel={touchRelease('ArrowRight')} on:contextmenu|preventDefault>→</button>
+          </div>
+          <button type="button" class="touch-btn touch-btn-action" aria-label="Launch ball" on:pointerdown={touchDown(' ')} on:pointerup={touchUp(' ')} on:pointerleave={touchRelease(' ')} on:pointercancel={touchRelease(' ')} on:contextmenu|preventDefault>LAUNCH</button>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>

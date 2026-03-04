@@ -121,6 +121,141 @@
       min-height: 100vh;
     }
 
+    /* Loading splash – branded retro style */
+    .loading-splash {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 16px;
+      padding: 24px;
+    }
+    .loading-splash-logo {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      opacity: 0.95;
+    }
+    .loading-splash-text {
+      font-family: var(--font-display);
+      font-size: 24px;
+      color: var(--accent-primary);
+      letter-spacing: 0.2em;
+    }
+    .loading-dots {
+      animation: pixelBlink 1s step-end infinite;
+    }
+    .loading-splash-bar {
+      width: 160px;
+      height: 4px;
+      background: var(--border-subtle);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .loading-splash-bar-fill {
+      height: 100%;
+      width: 30%;
+      background: var(--accent-primary);
+      border-radius: 2px;
+      animation: loadingBarPulse 0.8s ease-in-out infinite;
+    }
+    @keyframes loadingBarPulse {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(233%); }
+    }
+
+    /* Desktop recommendation banner – mobile only, dismissible */
+    .desktop-banner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 8px 12px 8px 16px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding-left: env(safe-area-inset-left, 16px);
+      padding-right: env(safe-area-inset-right, 16px);
+      padding-top: calc(8px + env(safe-area-inset-top, 0));
+    }
+    .desktop-banner-text {
+      flex: 1;
+      text-align: center;
+    }
+    .desktop-banner-dismiss {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .desktop-banner-dismiss:hover,
+    .desktop-banner-dismiss:focus {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .main-area.banner-offset {
+      padding-top: calc(52px + env(safe-area-inset-top, 0));
+    }
+
+    /* Mobile hamburger – hidden on desktop */
+    .mobile-hamburger {
+      display: none;
+      position: fixed;
+      top: calc(12px + env(safe-area-inset-top, 0));
+      left: calc(12px + env(safe-area-inset-left, 0));
+      z-index: 100;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-primary);
+      cursor: pointer;
+      border-radius: 8px;
+    }
+    .mobile-hamburger:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .app-container.banner-visible .mobile-hamburger {
+      top: calc(52px + 12px + env(safe-area-inset-top, 0));
+    }
+
+    /* Drawer backdrop – hidden by default */
+    .sidebar-drawer-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 998;
+      transition: opacity 0.2s ease;
+    }
+    .sidebar-drawer-backdrop.show {
+      opacity: 1;
+    }
+
     .sidebar {
       width: var(--sidebar-width);
       min-height: 100vh;
@@ -992,21 +1127,29 @@
     .touch-controls {
       display: none;
       position: fixed;
-      bottom: 16px;
+      bottom: calc(16px + env(safe-area-inset-bottom, 0));
       left: 50%;
       transform: translateX(-50%);
-      gap: 8px;
+      gap: 12px;
       z-index: 100;
       padding: 12px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
       background: var(--glass-bg);
       backdrop-filter: blur(20px);
       border-radius: 16px;
       border: 1px solid var(--border-subtle);
     }
+    .touch-controls.visible {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     .touch-btn {
       width: 48px;
       height: 48px;
+      min-width: 48px;
+      min-height: 48px;
       background: var(--bg-tertiary);
       border: 1px solid var(--border-subtle);
       border-radius: 10px;
@@ -1018,6 +1161,7 @@
       user-select: none;
       -webkit-user-select: none;
       transition: all 0.15s ease;
+      touch-action: manipulation;
     }
 
     .touch-btn:active {
@@ -1026,14 +1170,54 @@
       transform: scale(0.92);
     }
 
+    .touch-btn-action {
+      min-width: 72px;
+      font-size: var(--text-sm);
+      font-weight: 600;
+    }
+
     .touch-dpad {
       display: flex;
       gap: 4px;
     }
+    .touch-dpad-horizontal {
+      flex-direction: row;
+    }
+    .touch-dpad-cross {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr;
+      gap: 4px;
+      place-items: center;
+    }
+    .touch-dpad-cross .touch-dpad-up { grid-column: 2; grid-row: 1; }
+    .touch-dpad-cross .touch-dpad-left { grid-column: 1; grid-row: 2; }
+    .touch-dpad-cross .touch-dpad-right { grid-column: 3; grid-row: 2; }
+    .touch-dpad-cross .touch-dpad-down { grid-column: 2; grid-row: 3; }
 
     .touch-dpad .touch-btn {
-      width: 42px;
-      height: 42px;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .touch-controls-pong {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .touch-controls-snake {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 16px;
+    }
+    .touch-controls-breakout {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
     }
 
     .mobile-menu-btn {
@@ -1057,7 +1241,34 @@
     }
 
     @media (max-width: 768px) {
-      /* Keep desktop-style layout on narrow screens. */
+      /* Mobile shell: hamburger, drawer, tap targets */
+      .mobile-hamburger {
+        display: flex;
+      }
+      .sidebar-drawer-backdrop.show {
+        display: block;
+      }
+      .sidebar.drawer-mode {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(280px, 85vw);
+        max-width: 280px;
+        z-index: 999;
+        height: 100vh;
+        height: 100dvh;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        padding-top: env(safe-area-inset-top, 0);
+      }
+      .sidebar.drawer-mode.drawer-open {
+        transform: translateX(0);
+      }
+      .app-container .main-area {
+        margin-left: 0;
+      }
+
       .mobile-menu-btn {
         display: none;
       }
@@ -1068,20 +1279,157 @@
       }
 
       .game-title {
-        font-size: var(--text-xl);
+        font-size: var(--text-lg);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .game-header {
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        gap: 8px;
       }
 
       .score-display {
         font-size: var(--text-base);
-        padding: 6px 14px;
+        padding: 6px 12px;
+        flex-shrink: 0;
       }
 
-      .touch-controls {
-        display: none;
+      .game-container {
+        padding: 8px;
+        padding-left: calc(8px + env(safe-area-inset-left, 0));
+        padding-right: calc(8px + env(safe-area-inset-right, 0));
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0));
+      }
+
+      .gameplay-view .game-frame[data-rom-system] {
+        aspect-ratio: 4 / 3;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      .gameplay-view .game-frame[data-rom-system="gba"] {
+        aspect-ratio: 3 / 2;
+      }
+
+      .controls-bar {
+        padding: 8px 12px;
+        padding-left: calc(12px + env(safe-area-inset-left, 0));
+        padding-right: calc(12px + env(safe-area-inset-right, 0));
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0));
+        margin-top: 8px;
+        gap: 6px;
+        font-size: var(--text-sm);
+      }
+      .controls-bar .control-btn {
+        padding: 8px 10px;
+        font-size: var(--text-xs);
       }
 
       .main-area {
         padding: 16px;
+        padding-left: calc(16px + env(safe-area-inset-left, 0));
+        padding-right: calc(16px + env(safe-area-inset-right, 0));
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0));
+      }
+    }
+
+    /* Landscape mobile: apply same game-view and shell optimizations when short viewport (landscape phone) */
+    @media (orientation: landscape) and (max-height: 500px) {
+      .mobile-hamburger {
+        display: flex;
+      }
+      .sidebar-drawer-backdrop.show {
+        display: block;
+      }
+      .sidebar.drawer-mode {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(280px, 85vw);
+        max-width: 280px;
+        z-index: 999;
+        height: 100vh;
+        height: 100dvh;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        padding-top: env(safe-area-inset-top, 0);
+      }
+      .sidebar.drawer-mode.drawer-open {
+        transform: translateX(0);
+      }
+      .app-container .main-area {
+        margin-left: 0;
+      }
+      .game-title {
+        font-size: var(--text-lg);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .game-header {
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        gap: 6px;
+      }
+      .score-display {
+        font-size: var(--text-sm);
+        padding: 4px 10px;
+        flex-shrink: 0;
+      }
+      .game-container {
+        padding: 6px;
+        padding-left: calc(6px + env(safe-area-inset-left, 0));
+        padding-right: calc(6px + env(safe-area-inset-right, 0));
+        padding-bottom: calc(6px + env(safe-area-inset-bottom, 0));
+      }
+      .gameplay-view .game-frame[data-rom-system] {
+        aspect-ratio: 4 / 3;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      .gameplay-view .game-frame[data-rom-system="gba"] {
+        aspect-ratio: 3 / 2;
+      }
+      .controls-bar {
+        padding: 6px 10px;
+        padding-left: calc(10px + env(safe-area-inset-left, 0));
+        padding-right: calc(10px + env(safe-area-inset-right, 0));
+        padding-bottom: calc(6px + env(safe-area-inset-bottom, 0));
+        margin-top: 6px;
+        gap: 4px;
+        font-size: var(--text-xs);
+      }
+      .controls-bar .control-btn {
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+      /* Compact touch controls in landscape to maximize game area */
+      .touch-controls.visible {
+        padding: 8px;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0));
+        bottom: calc(8px + env(safe-area-inset-bottom, 0));
+      }
+      .touch-controls .touch-btn {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        font-size: var(--text-base);
+      }
+      .touch-controls .touch-dpad .touch-btn {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        min-height: 38px;
+      }
+      .touch-controls .touch-btn-action {
+        min-width: 60px;
+        font-size: 11px;
       }
     }
 

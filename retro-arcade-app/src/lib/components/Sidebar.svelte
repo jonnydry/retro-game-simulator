@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { BUILTIN_GAMES, saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
   import { currentView, previousView } from '$lib/stores/viewStore.js';
-  import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
+  import { sidebarCollapsed, sidebarDrawerOpen } from '$lib/stores/sidebarStore.js';
+  import { isMobile } from '$lib/utils/mobile.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
   import { getSettings, saveSettings, removeFromRomLibrary, getSaveStateMeta, clearSaveStateMeta } from '$lib/services/storage.js';
   import { showConfirm } from '$lib/services/dialog.js';
@@ -10,6 +11,7 @@
   export let onLoadGame = (id) => {};
   export let onLoadRom = (id) => {};
   export let onOpenSettings = () => {};
+  export let onCloseDrawer = () => {};
 
   let myGamesExpanded = false;
 
@@ -24,11 +26,33 @@
   }
 
   function toggleSidebar() {
+    if (isMobile()) {
+      sidebarDrawerOpen.set(false);
+      onCloseDrawer();
+      return;
+    }
     const next = !$sidebarCollapsed;
     sidebarCollapsed.set(next);
     const s = getSettings();
     s.sidebarCollapsed = next;
     saveSettings(s);
+  }
+
+  function handleLoadGameAndClose(id) {
+    onLoadGame(id);
+    if (isMobile()) onCloseDrawer();
+  }
+  function handleLoadRomAndClose(id) {
+    onLoadRom(id);
+    if (isMobile()) onCloseDrawer();
+  }
+  function handleOpenSettingsAndClose() {
+    onOpenSettings();
+    if (isMobile()) onCloseDrawer();
+  }
+  function handleShowEmulatorAndClose() {
+    showView('emulator');
+    if (isMobile()) onCloseDrawer();
   }
 
   function toggleMyGames() {
@@ -62,8 +86,8 @@
   });
 </script>
 
-<aside class="sidebar" class:collapsed={$sidebarCollapsed}>
-  <button class="sidebar-toggle" on:click={toggleSidebar} aria-label={$sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={$sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+<aside class="sidebar" class:collapsed={$sidebarCollapsed && !isMobile()} class:drawer-open={$sidebarDrawerOpen} class:drawer-mode={isMobile()}>
+  <button class="sidebar-toggle" on:click={toggleSidebar} aria-label={isMobile() ? 'Close menu' : ($sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')} title={isMobile() ? 'Close menu' : ($sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}>
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class:rotated={$sidebarCollapsed}>
       <path d="M15 18l-6-6 6-6"/>
     </svg>
@@ -88,8 +112,8 @@
           class="game-card"
           role="button"
           tabindex="0"
-          on:click={() => onLoadGame(game.id)}
-          on:keydown={(e) => handleActivateKey(e, () => onLoadGame(game.id))}
+        on:click={() => handleLoadGameAndClose(game.id)}
+        on:keydown={(e) => handleActivateKey(e, () => handleLoadGameAndClose(game.id))}
         >
           <div class="game-icon">{game.icon}</div>
           <div class="game-info">
@@ -109,8 +133,8 @@
             class="sidebar-rom-item sidebar-rom-item-simple"
             role="button"
             tabindex="0"
-            on:click={() => onLoadRom(rom.id)}
-            on:keydown={(e) => handleActivateKey(e, () => onLoadRom(rom.id))}
+            on:click={() => handleLoadRomAndClose(rom.id)}
+            on:keydown={(e) => handleActivateKey(e, () => handleLoadRomAndClose(rom.id))}
           >
             <span class="rom-name">{rom.name}</span>
             {#if getSaveStateMeta(rom.id)}
@@ -126,7 +150,7 @@
         {/each}
       {/if}
     </div>
-    <button class="control-btn" style="width:100%;margin-top:12px;justify-content:center;padding:10px" on:click={() => showView('emulator')}>
+    <button class="control-btn" style="width:100%;margin-top:12px;justify-content:center;padding:10px" on:click={handleShowEmulatorAndClose}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px">
         <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="1"/>
       </svg>
@@ -134,7 +158,7 @@
     </button>
   </div>
   <div class="sidebar-bottom">
-    <button class="control-btn" style="width:100%;justify-content:center;padding:10px" on:click={() => onOpenSettings()} aria-label="Settings" title="Settings">
+    <button class="control-btn" style="width:100%;justify-content:center;padding:10px" on:click={handleOpenSettingsAndClose} aria-label="Settings" title="Settings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>

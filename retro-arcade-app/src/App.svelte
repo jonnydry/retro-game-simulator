@@ -3,7 +3,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { currentView, previousView } from '$lib/stores/viewStore.js';
   import { currentGame, currentRomId, pendingRomLoadId } from '$lib/stores/gameStore.js';
-  import { sidebarCollapsed } from '$lib/stores/sidebarStore.js';
+  import { sidebarCollapsed, sidebarDrawerOpen } from '$lib/stores/sidebarStore.js';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import HomeView from '$lib/components/HomeView.svelte';
   import EmulatorView from '$lib/components/EmulatorView.svelte';
@@ -11,6 +11,8 @@
   import DialogModal from '$lib/components/DialogModal.svelte';
   import RomDialogModal from '$lib/components/RomDialogModal.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
+  import DesktopBanner from '$lib/components/DesktopBanner.svelte';
+  import { desktopBannerVisible } from '$lib/stores/desktopBannerStore.js';
   import {
     getEnabledSystemExtensions,
     getPendingRomId,
@@ -27,6 +29,14 @@
   import { uiScale } from '$lib/stores/uiScaleStore.js';
   import { startWatching } from '$lib/services/watchFolderService.js';
   import { enabledSystems, setDreamcastEnabled } from '$lib/stores/systemStore.js';
+  import { isMobile } from '$lib/utils/mobile.js';
+
+  function openDrawer() {
+    sidebarDrawerOpen.set(true);
+  }
+  function closeDrawer() {
+    sidebarDrawerOpen.set(false);
+  }
 
   let showRomDialog = false;
   let romDialogPreselected = '';
@@ -172,10 +182,13 @@
       if (romId) attemptAutoSaveRomState(romId);
     };
     window.addEventListener('beforeunload', beforeunloadHandler);
-    const dreamcastAvailable = await initializeDreamcastSupport();
-    if (dreamcastAvailable) setDreamcastEnabled(true);
-    await initRomStorage();
+    // Run critical storage init first; Dreamcast in parallel (hidden on mobile)
+    const [dreamcastAvailable] = await Promise.all([
+      initializeDreamcastSupport(),
+      initRomStorage()
+    ]);
     romLibrary.refresh();
+    if (dreamcastAvailable && !isMobile()) setDreamcastEnabled(true);
     storageReady = true;
     const settings = getSettings();
     uiScale.set(settings.uiScale ?? 1.25);
@@ -258,15 +271,36 @@
   }
 </script>
 
-<div class="app-container dither-bg" style="zoom: {$uiScale}">
+<div class="app-container dither-bg" class:banner-visible={$desktopBannerVisible} style="zoom: {$uiScale}">
+  <DesktopBanner />
   {#if storageReady}
   <Sidebar
     onLoadGame={handleLoadGame}
     onLoadRom={handleLoadRom}
     onOpenSettings={handleOpenSettings}
+    onCloseDrawer={closeDrawer}
   />
+  <div
+    class="sidebar-drawer-backdrop"
+    class:show={$sidebarDrawerOpen}
+    role="button"
+    tabindex="-1"
+    aria-label="Close menu"
+    on:click={closeDrawer}
+    on:keydown={(e) => e.key === 'Enter' && closeDrawer()}
+  ></div>
 
-  <main class="main-area" class:emulator-active={$currentView === 'emulator'} class:browse-mode={$currentView === 'home' || $currentView === 'emulator'} id="main-content" tabindex="-1">
+  <button
+    class="mobile-hamburger"
+    aria-label="Open menu"
+    title="Open menu"
+    on:click={openDrawer}
+  >
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 6h18M3 12h18M3 18h18"/>
+    </svg>
+  </button>
+  <main class="main-area" class:emulator-active={$currentView === 'emulator'} class:browse-mode={$currentView === 'home' || $currentView === 'emulator'} class:banner-offset={$desktopBannerVisible} id="main-content" tabindex="-1">
     <div class="main-logo" class:visible={$sidebarCollapsed && $currentView !== 'emulator' && $currentView !== 'play'} aria-hidden="true">
       <img src="/logo-icon-48.png" alt="" class="main-logo-icon" aria-hidden="true" />
       <span class="logo-emu">Emu</span><span>Phoria</span>
@@ -283,7 +317,11 @@
     {/if}
   </main>
   {:else}
-  <div class="main-area" style="display: flex; align-items: center; justify-content: center; min-height: 100vh; color: var(--text-muted)">Loading...</div>
+  <div class="loading-splash">
+    <img src="/logo-icon-48.png" alt="" class="loading-splash-logo" />
+    <div class="loading-splash-text">LOADING<span class="loading-dots">...</span></div>
+    <div class="loading-splash-bar"><div class="loading-splash-bar-fill"></div></div>
+  </div>
   {/if}
 </div>
 

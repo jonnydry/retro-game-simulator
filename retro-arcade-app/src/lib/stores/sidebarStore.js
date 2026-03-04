@@ -10,3 +10,4 @@ const initial = (() => {
 })();
 
 export const sidebarCollapsed = writable(initial);
+export const sidebarDrawerOpen = writable(false);

@@ -5,6 +5,7 @@ import './styles/global.css'
 import App from './App.svelte'
 import { keys, currentGame, currentRomId, isPaused } from './lib/stores/gameStore.js'
 import { currentView } from './lib/stores/viewStore.js'
+import { getTouchKeys, clearTouchKeys, getTouchKeyChangeEvent } from './lib/input/touchKeys.js'
 
 const app = mount(App, {
   target: document.getElementById('app'),
@@ -54,6 +55,10 @@ function buildMergedKeys() {
   if (gamepadState.Space) {
     merged[' '] = true
     merged.Space = true
+  }
+  const tk = getTouchKeys()
+  for (const [key, isPressed] of Object.entries(tk)) {
+    if (isPressed) merged[key] = true
   }
   return merged
 }
@@ -109,6 +114,11 @@ document.addEventListener('keyup', (e) => {
 
 window.addEventListener('blur', () => {
   clearKeyboardState()
+  clearTouchKeys()
+})
+
+window.addEventListener(getTouchKeyChangeEvent(), () => {
+  publishKeysIfChanged()
 })
 
 const GAMEPAD_DEADZONE = 0.15
