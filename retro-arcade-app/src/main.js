@@ -3,8 +3,9 @@ import '@fontsource/vt323'
 import './app.css'
 import './styles/global.css'
 import App from './App.svelte'
-import { keys, currentGame, currentRomId, isPaused } from './lib/stores/gameStore.js'
+import { keys, currentGame, currentRomId, isPaused, pendingRomLoadId } from './lib/stores/gameStore.js'
 import { currentView } from './lib/stores/viewStore.js'
+import { togglePlayPause } from './lib/services/appController.js'
 import { getTouchKeys, clearTouchKeys, getTouchKeyChangeEvent } from './lib/input/touchKeys.js'
 
 const app = mount(App, {
@@ -20,11 +21,11 @@ const gamepadState = {
   Space: false
 }
 let publishedKeys = {}
-let _currentGame, _currentView, _isPaused, _currentRomId
+let _currentGame, _currentView, _isPaused, _currentRomId, _pendingRomLoadId
 currentGame.subscribe((v) => (_currentGame = v))
-currentView.subscribe((v) => (_currentView = v))
 isPaused.subscribe((v) => (_isPaused = v))
 currentRomId.subscribe((v) => (_currentRomId = v))
+pendingRomLoadId.subscribe((v) => (_pendingRomLoadId = v))
 
 function isEditableTarget(target) {
   return (
@@ -92,9 +93,9 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === ' ' || e.key === 'Space') && !e.repeat) {
     const builtin = ['pong', 'snake', 'breakout'].includes(_currentGame)
     const breakoutRunning = _currentGame === 'breakout' && !_isPaused && !document.querySelector('.press-start.show')
-    const romActive = _currentRomId && _currentGame === null
+    const romActive = !_pendingRomLoadId && _currentGame === null && (_currentRomId || window.EJS_emulator)
     if (_currentView === 'play' && !breakoutRunning && (builtin || romActive)) {
-      window.__togglePause?.()
+      togglePlayPause()
     }
   }
   const key = e.key === 'Space' ? ' ' : e.key
@@ -123,6 +124,51 @@ window.addEventListener(getTouchKeyChangeEvent(), () => {
 
 const GAMEPAD_DEADZONE = 0.15
 let gamepadInterval = null
+
+function clearGamepadState() {
+  const hadPressed =
+    gamepadState.ArrowUp ||
+    gamepadState.ArrowDown ||
+    gamepadState.ArrowLeft ||
+    gamepadState.ArrowRight ||
+    gamepadState.Space
+
+  gamepadState.ArrowUp = false
+  gamepadState.ArrowDown = false
+  gamepadState.ArrowLeft = false
+  gamepadState.ArrowRight = false
+  gamepadState.Space = false
+
+  if (hadPressed) publishKeysIfChanged()
+}
+
+function hasConnectedGamepads() {
+  return !!navigator.getGamepads?.()?.some((g) => g)
+}
+
+function shouldPollGamepads() {
+  return _currentView === 'play' && document.visibilityState === 'visible' && hasConnectedGamepads()
+}
+
+function stopGamepadPolling() {
+  if (gamepadInterval) {
+    clearInterval(gamepadInterval)
+    gamepadInterval = null
+  }
+  clearGamepadState()
+}
+
+function syncGamepadPolling() {
+  if (shouldPollGamepads()) {
+    if (!gamepadInterval) {
+      pollGamepads()
+      gamepadInterval = setInterval(pollGamepads, 16)
+    }
+    return
+  }
+
+  stopGamepadPolling()
+}
 
 function pollGamepads() {
   const gamepads = navigator.getGamepads?.()
@@ -153,18 +199,13 @@ function pollGamepads() {
   publishKeysIfChanged()
 }
 
-window.addEventListener('gamepadconnected', () => {
-  if (!gamepadInterval) gamepadInterval = setInterval(pollGamepads, 16)
+window.addEventListener('gamepadconnected', syncGamepadPolling)
+window.addEventListener('gamepaddisconnected', syncGamepadPolling)
+document.addEventListener('visibilitychange', syncGamepadPolling)
+currentView.subscribe((v) => {
+  _currentView = v
+  syncGamepadPolling()
 })
-window.addEventListener('gamepaddisconnected', () => {
-  const gps = navigator.getGamepads?.()
-  if (!gps?.some((g) => g) && gamepadInterval) {
-    clearInterval(gamepadInterval)
-    gamepadInterval = null
-  }
-})
-if (navigator.getGamepads?.()?.some((g) => g)) {
-  gamepadInterval = setInterval(pollGamepads, 16)
-}
+syncGamepadPolling()
 
 export default app

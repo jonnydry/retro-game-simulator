@@ -9,7 +9,6 @@ import { getSaveStateBlob, saveSaveStateBlob } from '$lib/services/romStorage.js
 import { DREAMCAST_SYSTEM_ID, defaultEnabledSystems, systemOrder } from '$lib/config/systems.js';
 import { MAX_ROM_FILE_SIZE_BYTES, formatBytes } from '$lib/config/security.js';
 import { romLibrary } from '$lib/stores/romLibraryStore.js';
-import { saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
 import { showAlert, showConfirm } from '$lib/services/dialog.js';
 import { normalizeRomDisplayName } from '$lib/utils/romName.js';
 
@@ -27,10 +26,11 @@ let currentRomBlobUrl = null;
 let currentLoadStateBlobUrl = null;
 let webgl2CompatInjected = false;
 let createElementPatchRestore = null;
-let dreamcastSupportInitialized = false;
+let dreamcastSupportInitPromise = null;
 let dreamcastSupportAvailable = false;
 let dreamcastDataPath = '';
 let pendingSaveStateCapture = null;
+let emulatorRuntimeBootstrapped = false;
 const MENU_BUTTON_SELECTORS = [
   '[data-ejs="menu"]',
   '.ejs_menu_button',
@@ -183,38 +183,41 @@ export function isDreamcastAvailable() {
 }
 
 export async function initializeDreamcastSupport() {
-  if (dreamcastSupportInitialized) return dreamcastSupportAvailable;
-  dreamcastSupportInitialized = true;
+  if (dreamcastSupportInitPromise) return dreamcastSupportInitPromise;
 
-  if (DREAMCAST_FORCE_ENABLE) {
-    dreamcastSupportAvailable = true;
-    dreamcastDataPath = DREAMCAST_CUSTOM_DATA_PATH || DEFAULT_EJS_CDN;
+  dreamcastSupportInitPromise = (async () => {
+    if (DREAMCAST_FORCE_ENABLE) {
+      dreamcastSupportAvailable = true;
+      dreamcastDataPath = DREAMCAST_CUSTOM_DATA_PATH || DEFAULT_EJS_CDN;
+      return dreamcastSupportAvailable;
+    }
+
+    if (DREAMCAST_CUSTOM_DATA_PATH) {
+      const hasCustomCore = await dataPathSupportsCore(DREAMCAST_CUSTOM_DATA_PATH, DREAMCAST_CORE);
+      if (hasCustomCore) {
+        dreamcastSupportAvailable = true;
+        dreamcastDataPath = DREAMCAST_CUSTOM_DATA_PATH;
+        return dreamcastSupportAvailable;
+      }
+    }
+
+    const bundledPath = getBundledDreamcastPath();
+    if (bundledPath) {
+      const hasBundledCore = await dataPathSupportsCore(bundledPath, DREAMCAST_CORE);
+      if (hasBundledCore) {
+        dreamcastSupportAvailable = true;
+        dreamcastDataPath = bundledPath;
+        return dreamcastSupportAvailable;
+      }
+    }
+
+    const hasDefaultCore = await dataPathSupportsCore(DEFAULT_EJS_CDN, DREAMCAST_CORE);
+    dreamcastSupportAvailable = hasDefaultCore;
+    dreamcastDataPath = hasDefaultCore ? DEFAULT_EJS_CDN : '';
     return dreamcastSupportAvailable;
-  }
+  })();
 
-  if (DREAMCAST_CUSTOM_DATA_PATH) {
-    const hasCustomCore = await dataPathSupportsCore(DREAMCAST_CUSTOM_DATA_PATH, DREAMCAST_CORE);
-    if (hasCustomCore) {
-      dreamcastSupportAvailable = true;
-      dreamcastDataPath = DREAMCAST_CUSTOM_DATA_PATH;
-      return dreamcastSupportAvailable;
-    }
-  }
-
-  const bundledPath = getBundledDreamcastPath();
-  if (bundledPath) {
-    const hasBundledCore = await dataPathSupportsCore(bundledPath, DREAMCAST_CORE);
-    if (hasBundledCore) {
-      dreamcastSupportAvailable = true;
-      dreamcastDataPath = bundledPath;
-      return dreamcastSupportAvailable;
-    }
-  }
-
-  const hasDefaultCore = await dataPathSupportsCore(DEFAULT_EJS_CDN, DREAMCAST_CORE);
-  dreamcastSupportAvailable = hasDefaultCore;
-  dreamcastDataPath = hasDefaultCore ? DEFAULT_EJS_CDN : '';
-  return dreamcastSupportAvailable;
+  return dreamcastSupportInitPromise;
 }
 
 export const gbaDefaultControls = {
@@ -265,20 +268,38 @@ export const dreamcastDefaultControls = {
 
 export function inferSystemFromFileName(fileName) {
   const lower = fileName.toLowerCase();
-  const nonZipEntries = Object.entries(systemExtensions).map(([system, exts]) => [
-    system,
-    exts.filter((ext) => ext !== '.zip')
-  ]);
+  const nonZipEntries = Object.entries(systemExtensions).map(([system, exts]) => {
+    const filtered = exts.filter((ext) => ext !== '.zip');
+    return [system, filtered];
+  });
 
-  if (lower.endsWith('.zip')) {
-    for (const [system, exts] of nonZipEntries) {
-      if (exts.some((ext) => lower.endsWith(ext + '.zip'))) return system;
+  function inferFromExtension(targetExt) {
+    const matches = nonZipEntries.filter(([, exts]) => exts.includes(targetExt));
+    if (matches.length === 1) {
+      return matches[0][0];
     }
     return null;
   }
 
-  for (const [system, exts] of nonZipEntries) {
-    if (exts.some((ext) => lower.endsWith(ext))) return system;
+  if (lower.endsWith('.zip')) {
+    const matchedExts = [...new Set(nonZipEntries.flatMap(([, exts]) => exts))]
+      .sort((a, b) => b.length - a.length);
+
+    for (const ext of matchedExts) {
+      if (lower.endsWith(ext + '.zip')) {
+        return inferFromExtension(ext);
+      }
+    }
+    return null;
+  }
+
+  const matchedExts = [...new Set(nonZipEntries.flatMap(([, exts]) => exts))]
+    .sort((a, b) => b.length - a.length);
+
+  for (const ext of matchedExts) {
+    if (lower.endsWith(ext)) {
+      return inferFromExtension(ext);
+    }
   }
   return null;
 }
@@ -405,7 +426,7 @@ export function saveEmulatorState(slot = 0) {
 /**
  * Save state and attempt to capture the blob into app storage for the given romId.
  * Call this when the user clicks Save and we have a romId (library ROM).
- * Returns true if the emulator saved successfully (even if blob capture failed).
+ * Returns true only when the emulator save succeeded and a restorable blob was persisted.
  */
 export async function saveEmulatorStateAndCapture(romId, slot = 0) {
   const waitForCapture = romId
@@ -439,14 +460,16 @@ export async function saveEmulatorStateAndCapture(romId, slot = 0) {
     const emu = getEmulatorInstance();
     blob = await tryGetSaveStateBlobFromEmulator(emu, slot);
   }
-  if (blob && romId) {
-    try {
-      await saveSaveStateBlob(romId, slot, blob);
-    } catch (e) {
-      console.warn('Failed to store save state', e);
-    }
+  if (!romId) return Boolean(blob);
+  if (!blob) return false;
+
+  try {
+    await saveSaveStateBlob(romId, slot, blob);
+    return true;
+  } catch (e) {
+    console.warn('Failed to store save state', e);
+    return false;
   }
-  return true;
 }
 
 /**
@@ -461,7 +484,6 @@ export async function attemptAutoSaveRomState(romId) {
     const ok = await saveEmulatorStateAndCapture(romId, 0);
     if (ok) {
       setSaveStateMeta(romId, 0);
-      saveStateRefreshTrigger.update((n) => n + 1);
     }
   } catch (e) {
     console.warn('Auto-save failed', e);
@@ -585,7 +607,7 @@ function injectWebgl2Compat() {
 }
 
 async function loadEmulator(containerId, romUrl, gameName, system, callbacks, options = {}) {
-  const { romId, onSaveStateCapture } = options;
+  const { romId, onSaveStateCapture, resumeFromSave = false } = options;
   const container = document.getElementById('emulator');
   if (!container) return;
 
@@ -599,7 +621,7 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
   currentRomBlobUrl = romUrl;
 
   let loadStateUrl = options.loadStateUrl || null;
-  if (!loadStateUrl && romId) {
+  if (!loadStateUrl && romId && resumeFromSave) {
     const blob = await getSaveStateBlob(romId, 0);
     if (blob) loadStateUrl = URL.createObjectURL(blob);
   }
@@ -649,6 +671,9 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
 
   const script = document.createElement('script');
   script.src = `${window.EJS_pathtodata}loader.js`;
+  script.onload = () => {
+    emulatorRuntimeBootstrapped = true;
+  };
   script.onerror = () => {
     const msg = isDreamcastSystem(system)
       ? 'Dreamcast failed. Run "npm run setup-dreamcast", add BIOS to dreamcast-data/bios/dc/, or try .cdi/.gdi format.'
@@ -659,10 +684,6 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
 }
 
 export async function loadRomFromFile(file, system, mode, callbacks) {
-  if (!dreamcastSupportInitialized) {
-    await initializeDreamcastSupport();
-  }
-
   if (file.size > MAX_ROM_FILE_SIZE_BYTES) {
     const message =
       `ROM is too large (${formatBytes(file.size)}). ` +
@@ -683,6 +704,10 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
     }
   }
 
+  if (isDreamcastSystem(system)) {
+    await initializeDreamcastSupport();
+  }
+
   if (isDreamcastSystem(system) && !dreamcastSupportAvailable) {
     const message = getDreamcastUnavailableMessage();
     await showAlert(message);
@@ -690,6 +715,7 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
     return false;
   }
 
+  const romName = normalizeRomDisplayName(file.name);
   const fileName = file.name.toLowerCase();
   const validExtensions = systemExtensions[system] || [];
   const hasValidExtension = validExtensions.some((ext) => fileName.endsWith(ext));
@@ -705,18 +731,23 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
     }
   }
 
+  if (mode === 'import') {
+    const romId = await addToRomLibrary(romName, system, file);
+    romLibrary.refresh();
+    return { imported: true, romId, system, displayName: romName };
+  }
+
+  if (emulatorRuntimeBootstrapped) {
+    const message = 'Running a local file after an emulator session requires a fresh page. Import it to your library first, or refresh and try again.';
+    await showAlert(message);
+    callbacks?.onError?.(message);
+    return false;
+  }
+
   stopEmulator();
 
-  const arrayBuffer = await file.arrayBuffer();
-  const romName = normalizeRomDisplayName(file.name);
-  const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
-
   let romId = null;
-  if (mode === 'import') {
-    romId = await addToRomLibrary(romName, system, blob);
-    romLibrary.refresh();
-  }
-  const romUrl = URL.createObjectURL(blob);
+  const romUrl = URL.createObjectURL(file);
 
   const containerId = 'emulator-' + Date.now();
   const container = document.getElementById('emulator');
@@ -730,14 +761,15 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
   loadEmulator(containerId, romUrl, romName, system, {
     onGameStart: callbacks?.onGameStart,
     onReady: callbacks?.onReady,
-    onError: () => {
-      callbacks?.onError?.('Failed to load emulator');
+    onError: (message) => {
+      callbacks?.onError?.(message || 'Failed to load emulator');
     }
   }, loadOpts);
   return { loaded: true, romId, system, displayName: romName };
 }
 
 const PENDING_ROM_KEY = 'emumphoria_pendingRomId';
+const PENDING_RESUME_FROM_SAVE_KEY = 'emumphoria_pendingResumeFromSave';
 
 export function getPendingRomId() {
   try {
@@ -750,25 +782,37 @@ export function getPendingRomId() {
   return null;
 }
 
-export async function loadRomFromLibrary(romId, callbacks) {
-  if (!dreamcastSupportInitialized) {
+export function getPendingResumeFromSave() {
+  try {
+    const value = sessionStorage.getItem(PENDING_RESUME_FROM_SAVE_KEY);
+    if (value !== null) {
+      sessionStorage.removeItem(PENDING_RESUME_FROM_SAVE_KEY);
+      return value === '1';
+    }
+  } catch (_) {}
+  return null;
+}
+
+export async function loadRomFromLibrary(romId, callbacks, options = {}) {
+  const rom = getRomFromLibrary(romId);
+  if (!rom) {
+    callbacks?.onError?.('ROM not found in library');
+    return false;
+  }
+
+  if (isDreamcastSystem(rom.system)) {
     await initializeDreamcastSupport();
   }
 
   // EmulatorJS cannot be reloaded; re-running would cause "EJS_STORAGE already declared".
   // Reload the page so we get a fresh JS context, then load this ROM on init.
-  if (getEmulatorInstance()) {
+  if (emulatorRuntimeBootstrapped) {
     try {
       sessionStorage.setItem(PENDING_ROM_KEY, romId);
+      sessionStorage.setItem(PENDING_RESUME_FROM_SAVE_KEY, options.resumeFromSave ? '1' : '0');
     } catch (_) {}
     window.location.reload();
     return { needReload: true, romId };
-  }
-
-  const rom = getRomFromLibrary(romId);
-  if (!rom) {
-    callbacks?.onError?.('ROM not found in library');
-    return false;
   }
 
   if (isDreamcastSystem(rom.system) && !dreamcastSupportAvailable) {
@@ -799,8 +843,12 @@ export async function loadRomFromLibrary(romId, callbacks) {
   loadEmulator(containerId, romUrl, rom.name, rom.system, {
     onGameStart: callbacks?.onGameStart,
     onReady: callbacks?.onReady,
-    onError: () => callbacks?.onError?.('Failed to load emulator')
-  }, { romId, onSaveStateCapture: handleSaveStateCapture });
+    onError: (message) => callbacks?.onError?.(message || 'Failed to load emulator')
+  }, {
+    romId,
+    onSaveStateCapture: handleSaveStateCapture,
+    resumeFromSave: Boolean(options.resumeFromSave)
+  });
   return true;
 }
 

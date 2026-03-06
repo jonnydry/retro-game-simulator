@@ -1,8 +1,13 @@
 <script>
+  import { onDestroy, onMount, tick } from 'svelte';
   import { getSettings, saveSettings, getSavedData, saveData } from '$lib/services/storage.js';
   import { setSoundEnabled, initAudio } from '$lib/services/audio.js';
   import { uiScale } from '$lib/stores/uiScaleStore.js';
+  import { theme as currentTheme, setTheme } from '$lib/stores/themeStore.js';
   import { showConfirm } from '$lib/services/dialog.js';
+  import { focusFirstElement, trapFocus } from '$lib/utils/modalFocus.js';
+  import { registerSettingsModalApi } from '$lib/services/appController.js';
+  import { THEME_OPTIONS } from '$lib/services/theme.js';
   import {
     isSupported,
     getWatchedFolders,
@@ -21,13 +26,23 @@
   let scanStatus = '';
 
   const GAME_NAMES = { pong: 'Pong', snake: 'Snake', breakout: 'Breakout' };
+  const titleId = 'settings-modal-title';
 
   let showSettings = false;
   let gamepadStatusText = 'No gamepad connected';
   let gamepadConnected = false;
   let gamepadListenerCleanup = null;
+  let settingsPanelEl = null;
+  let lastFocusedElement = null;
+  let unregisterSettingsModalApi = null;
+
+  $: activeThemeOption =
+    THEME_OPTIONS.find((option) => option.id === $currentTheme) || THEME_OPTIONS[0];
 
   function open() {
+    if (typeof document !== 'undefined') {
+      lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
     const settings = getSettings();
     soundEnabled = settings.soundEnabled ?? false;
     showHints = settings.showHints ?? true;
@@ -37,6 +52,7 @@
     updateGamepadStatus();
     loadWatchedFolders();
     showSettings = true;
+    tick().then(() => focusFirstElement(settingsPanelEl));
     if (typeof window !== 'undefined') {
       window.addEventListener('gamepadconnected', updateGamepadStatus);
       window.addEventListener('gamepaddisconnected', updateGamepadStatus);
@@ -55,6 +71,7 @@
     if (gamepadListenerCleanup) {
       gamepadListenerCleanup();
     }
+    lastFocusedElement?.focus?.();
   }
 
   async function loadWatchedFolders() {
@@ -69,6 +86,10 @@
     setSoundEnabled(soundEnabled);
     if (soundEnabled) initAudio();
     startWatching(settings.watchFoldersEnabled ?? false);
+  }
+
+  function selectTheme(nextTheme) {
+    setTheme(nextTheme);
   }
 
   async function handleAddFolder() {
@@ -89,8 +110,16 @@
   async function handleScanNow() {
     scanStatus = 'Scanning...';
     try {
-      const added = await scanNow();
-      scanStatus = added > 0 ? `Added ${added} ROM(s)` : 'No new ROMs found';
+      const result = await scanNow();
+      if (result.added > 0 && result.skippedAmbiguous > 0) {
+        scanStatus = `Added ${result.added} ROM(s), skipped ${result.skippedAmbiguous} ambiguous file(s)`;
+      } else if (result.added > 0) {
+        scanStatus = `Added ${result.added} ROM(s)`;
+      } else if (result.skippedAmbiguous > 0) {
+        scanStatus = `Skipped ${result.skippedAmbiguous} ambiguous file(s)`;
+      } else {
+        scanStatus = 'No new ROMs found';
+      }
     } catch (err) {
       scanStatus = err?.message?.includes('quota') || err?.message?.includes('Storage')
         ? 'Storage full - remove some ROMs to add more'
@@ -145,35 +174,51 @@
     }
   }
 
-  function handleBackdropKeydown(e) {
-    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+  function handleModalKeydown(e) {
+    if (e.key === 'Escape') {
       e.preventDefault();
       close();
+      return;
     }
+
+    trapFocus(e, settingsPanelEl);
   }
 
-  if (typeof window !== 'undefined') {
-    window.__openSettings = open;
-  }
+  onMount(() => {
+    unregisterSettingsModalApi = registerSettingsModalApi({ open });
+  });
+
+  onDestroy(() => {
+    unregisterSettingsModalApi?.();
+    unregisterSettingsModalApi = null;
+    if (gamepadListenerCleanup) {
+      gamepadListenerCleanup();
+    }
+  });
 </script>
 
 {#if showSettings}
-  <div class="settings-modal show" role="dialog" aria-modal="true">
+  <div class="settings-modal show">
     <div
       class="settings-backdrop"
-      role="button"
-      tabindex="0"
-      aria-label="Close settings"
+      aria-hidden="true"
       on:click={close}
-      on:keydown={handleBackdropKeydown}
     ></div>
-    <div class="settings-panel">
+    <div
+      class="settings-panel"
+      bind:this={settingsPanelEl}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabindex="-1"
+      on:keydown={handleModalKeydown}
+    >
       <div class="settings-header">
         <div>
           <p class="home-kicker settings-kicker">Control Deck</p>
-          <h2>Settings</h2>
+          <h2 id={titleId}>Settings</h2>
         </div>
-        <button class="settings-close" on:click={close} aria-label="Close">×</button>
+        <button type="button" class="settings-close" on:click={close} aria-label="Close">×</button>
       </div>
       <div class="settings-content">
         <div class="settings-section settings-section-card">
@@ -207,6 +252,32 @@
               {/each}
             </select>
           </label>
+          <div class="settings-row settings-row-spaced settings-row-stack">
+            <div class="settings-row-copy">
+              <span>Tint Theme</span>
+              <span class="settings-row-value">{activeThemeOption.label}</span>
+            </div>
+            <div class="settings-theme-strip" role="group" aria-label="Tint themes">
+              {#each THEME_OPTIONS as option}
+                <button
+                  type="button"
+                  class="settings-theme-option"
+                  class:active={option.id === $currentTheme}
+                  aria-pressed={option.id === $currentTheme}
+                  aria-label={`Use ${option.label} tint theme`}
+                  title={option.label}
+                  on:click={() => selectTheme(option.id)}
+                >
+                  <span
+                    class="settings-theme-option-swatch"
+                    aria-hidden="true"
+                    style={`--theme-accent-secondary: ${option.accentSecondary}; --theme-accent-tertiary: ${option.accentTertiary};`}
+                  ></span>
+                  <span class="settings-theme-option-label">{option.label}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
         </div>
         <div class="settings-section settings-section-card">
           <h3>ROM Folders</h3>

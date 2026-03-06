@@ -6,7 +6,6 @@ export const pendingRomLoadId = writable(null); // ROM to load after user clicks
 export const score = writable(0);
 export const isPaused = writable(true);
 export const keys = writable({});
-export const saveStateRefreshTrigger = writable(0); // bump to refresh save state indicators in sidebar/emulator view
 
 export const BUILTIN_GAMES = [
   { id: 'pong', name: 'Pong', year: '1972', icon: '🏓', type: 'builtin' },

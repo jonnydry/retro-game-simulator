@@ -1,7 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
-  import { currentView, previousView } from '$lib/stores/viewStore.js';
   import {
     currentGame,
     currentRomId,
@@ -9,11 +8,9 @@
     score,
     isPaused,
     keys as keysStore,
-    saveStateRefreshTrigger,
     BUILTIN_GAMES
   } from '$lib/stores/gameStore.js';
-  import { getSettings, getSaveStateMeta, setSaveStateMeta } from '$lib/services/storage.js';
-  import { showConfirm } from '$lib/services/dialog.js';
+  import { getSettings, saveStateMetaByRom, setSaveStateMeta } from '$lib/services/storage.js';
   import { setSoundEnabled, initAudio, playSound, stopGameAudio, resumeGameAudio, isSoundEnabled } from '$lib/services/audio.js';
   import { setHighScore } from '$lib/services/storage.js';
   import { runGame } from '$lib/games/gameRunner.js';
@@ -22,6 +19,7 @@
   import { setTouchKey } from '$lib/input/touchKeys.js';
   import { isMobile } from '$lib/utils/mobile.js';
   import {
+    stopEmulator,
     emptyEmulatorCapabilities,
     getEmulatorCapabilities,
     loadEmulatorState,
@@ -33,13 +31,17 @@
     setEmulatorVolume,
     attemptAutoSaveRomState
   } from '$lib/services/emulator.js';
+  import {
+    clearPendingRomLoadAction,
+    registerPlayViewApi,
+    startPendingRomLoad
+  } from '$lib/services/appController.js';
 
   export let showView = (v) => {};
 
   let canvasEl = null;
   let crtFrameEl = null;
   let emulatorEl = null;
-  let gameOver = false;
   let showPressStart = true;
   let showGameOver = false;
   let finalScore = 0;
@@ -58,6 +60,8 @@
   let emulatorCapabilities = emptyEmulatorCapabilities;
   let emulatorCapabilityPoll = null;
   let emulatorNeedsInteraction = true; // Requires user click to wake throttled tabs and satisfy autoplay
+  let unregisterPlayViewApi = null;
+  let lastSessionKey = '';
 
   const BUILTIN_IDS = ['pong', 'snake', 'breakout'];
 
@@ -84,6 +88,13 @@
   }
   function touchRelease(key) {
     return () => setKeyPressed(key, false);
+  }
+
+  function blurInteractiveTarget(event) {
+    const target = event.currentTarget;
+    if (target instanceof HTMLElement) {
+      target.blur();
+    }
   }
 
   function getResolutionSize(system) {
@@ -138,6 +149,23 @@
     emulatorCapabilities = emptyEmulatorCapabilities;
   }
 
+  $: {
+    const nextSessionKey = `${$currentGame || ''}|${$currentRomId || ''}|${$pendingRomLoadId || ''}`;
+    if (nextSessionKey !== lastSessionKey) {
+      lastSessionKey = nextSessionKey;
+      showGameOver = false;
+      finalScore = 0;
+      newHighScore = false;
+      romInfo = '';
+      showPressStart = true;
+      if (theaterMode) {
+        theaterMode = false;
+        syncTheaterClass();
+      }
+      score.set(0);
+    }
+  }
+
   $: if (gameInfo) gameTitle = gameInfo.name;
   $: keyboardHint =
     $currentGame === 'breakout'
@@ -152,8 +180,7 @@
     return `${Math.floor(sec / 86400)}d ago`;
   }
 
-  $: saveStateMeta = showEmulator && $currentRomId ? getSaveStateMeta($currentRomId) : null;
-  $: _refreshSaveState = $saveStateRefreshTrigger;
+  $: saveStateMeta = showEmulator && $currentRomId ? $saveStateMetaByRom[$currentRomId] || null : null;
   $: lastSavedText = saveStateMeta?.[0] ? formatTimeAgo(saveStateMeta[0]) : null;
 
   const CONTROL_GUIDES = {
@@ -225,12 +252,13 @@
       ? await saveEmulatorStateAndCapture(romId, 0)
       : saveEmulatorState(0);
     if (!saved) {
-      romInfo = 'Save state not supported for this system.';
+      romInfo = romId
+        ? 'Save state could not be captured for this system.'
+        : 'Save state not supported for this system.';
       return;
     }
     if (romId) {
       setSaveStateMeta(romId, 0);
-      saveStateRefreshTrigger.update((n) => n + 1);
     }
     romInfo = 'Saved state slot 1';
     refreshEmulatorCapabilities();
@@ -280,8 +308,8 @@
     } catch (_) {}
     closeTheaterMode();
     stopGameAudio();
-    window.__stopEmulator?.();
-    window.__onStartPendingRomLoad = null;
+    stopEmulator();
+    clearPendingRomLoadAction();
     pendingRomLoadId.set(null);
     currentGame.set(null);
     currentRomId.set(null);
@@ -293,7 +321,7 @@
     isEmulatorRunning = false;
     emulatorCapabilities = emptyEmulatorCapabilities;
     currentRomSystem = null;
-    showView(get(previousView) || 'home');
+    showView('emulator');
   }
 
   function showGameOverOverlay() {
@@ -308,7 +336,8 @@
     showGameOver = false;
     if (isBuiltinGame) {
       score.set(0);
-      window.__restartBuiltinGame?.();
+      if (gameLoopCleanup) gameLoopCleanup();
+      gameLoopCleanup = null;
     }
   }
 
@@ -390,28 +419,9 @@
       },
       refreshEmulatorCapabilities,
       applyResolution,
-      async promptResumeFromSave(opts = {}) {
-        if (opts.usedLoadStateURL) return false;
-        const romId = get(currentRomId);
-        if (!romId || !getSaveStateMeta(romId)) return false;
-        const ok = await showConfirm('Resume from save state?');
-        if (ok && loadEmulatorState(0)) {
-          romInfo = 'Loaded state slot 1';
-          isPaused.set(false);
-          refreshEmulatorCapabilities();
-          return true;
-        }
-        return false;
-      }
+      togglePause
     };
-    window.__playViewReady = () => api;
-    window.__togglePause = togglePause;
-    window.__restartBuiltinGame = () => {
-      showGameOver = false;
-      score.set(0);
-      if (gameLoopCleanup) gameLoopCleanup();
-      gameLoopCleanup = null;
-    };
+    unregisterPlayViewApi = registerPlayViewApi(api);
     onGlobalKeydown = (e) => {
       if (e.key === 'Escape' && theaterMode) {
         e.preventDefault();
@@ -435,14 +445,14 @@
       clearInterval(emulatorCapabilityPoll);
       emulatorCapabilityPoll = null;
     }
-    window.__stopEmulator?.();
-    window.__playViewReady = null;
-    window.__togglePause = null;
-    window.__restartBuiltinGame = null;
+    clearPendingRomLoadAction();
+    unregisterPlayViewApi?.();
+    unregisterPlayViewApi = null;
+    stopEmulator();
   });
 </script>
 
-<div class="main-view gameplay-view" class:theater-mode={theaterMode} style="display: flex; flex-direction: column; flex: 1;">
+<div class="main-view gameplay-view" class:theater-mode={theaterMode}>
   {#if theaterMode}
     <button
       type="button"
@@ -452,10 +462,14 @@
     ></button>
   {/if}
   <div class="game-header">
-    <h1 class="game-title">{gameTitle}</h1>
-    <div class="score-display">SCORE<span>{$score}</span></div>
+    <div class="game-header-main">
+      <h1 class="game-title">{gameTitle}</h1>
+      <div class="score-display">SCORE<span>{$score}</span></div>
+    </div>
     {#if romInfo}
-      <span class="rom-info-hint">{romInfo}</span>
+      <div class="game-header-status">
+        <span class="rom-info-hint">{romInfo}</span>
+      </div>
     {/if}
   </div>
   <div class="game-container">
@@ -463,7 +477,10 @@
       <button
         type="button"
         class="rom-load-overlay"
-        on:click={() => window.__onStartPendingRomLoad?.()}
+        on:click={(e) => {
+          blurInteractiveTarget(e);
+          startPendingRomLoad();
+        }}
         aria-label="Click to load game"
       >
         Click to load game
@@ -488,7 +505,10 @@
         {#if newHighScore}
           <div class="new-high-score">NEW HIGH SCORE!</div>
         {/if}
-        <button class="restart-btn" on:click={restartGame}>Play Again</button>
+        <button class="restart-btn" on:click={(e) => {
+          blurInteractiveTarget(e);
+          restartGame();
+        }}>Play Again</button>
       </div>
       <div
         class="emulator-container"
@@ -500,7 +520,10 @@
           <button
             type="button"
             class="emulator-click-overlay"
-            on:click={handleEmulatorOverlayClick}
+            on:click={(e) => {
+              blurInteractiveTarget(e);
+              handleEmulatorOverlayClick();
+            }}
             aria-label="Click or press Enter to start the emulator"
           >
             Click to start
@@ -510,14 +533,20 @@
     </div>
   </div>
   <div class="controls-bar">
-    <button class="control-btn" on:click={togglePause} aria-label="Start or pause game">
+    <button class="control-btn" on:click={(e) => {
+      blurInteractiveTarget(e);
+      togglePause();
+    }} aria-label="Start or pause game">
       <span>{$isPaused ? '▶' : '⏸'}</span>
       <span>{$isPaused ? 'START' : 'PAUSE'}</span>
     </button>
     <button
       class="control-btn"
       class:active={soundOn}
-      on:click={toggleSound}
+      on:click={(e) => {
+        blurInteractiveTarget(e);
+        toggleSound();
+      }}
       aria-label="Toggle sound effects"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -528,7 +557,10 @@
     {#if showEmulator}
       <button
         class="control-btn"
-        on:click={handleEmulatorReset}
+        on:click={(e) => {
+          blurInteractiveTarget(e);
+          handleEmulatorReset();
+        }}
         aria-label="Reset emulator game"
         disabled={!emulatorCapabilities.canReset}
       >
@@ -536,7 +568,10 @@
       </button>
       <button
         class="control-btn"
-        on:click={handleEmulatorSaveState}
+        on:click={(e) => {
+          blurInteractiveTarget(e);
+          handleEmulatorSaveState();
+        }}
         aria-label="Save state slot one"
         disabled={!emulatorCapabilities.canSaveState}
       >
@@ -544,7 +579,10 @@
       </button>
       <button
         class="control-btn"
-        on:click={handleEmulatorLoadState}
+        on:click={(e) => {
+          blurInteractiveTarget(e);
+          handleEmulatorLoadState();
+        }}
         aria-label="Load state slot one"
         disabled={!emulatorCapabilities.canLoadState}
       >
@@ -555,7 +593,10 @@
       {/if}
       <button
         class="control-btn"
-        on:click={handleEmulatorMenu}
+        on:click={(e) => {
+          blurInteractiveTarget(e);
+          handleEmulatorMenu();
+        }}
         aria-label="Open emulator controls menu"
         disabled={!emulatorCapabilities.canOpenMenu}
       >
@@ -565,7 +606,10 @@
     <button
       class="control-btn"
       class:active={theaterMode}
-      on:click={toggleTheaterMode}
+      on:click={(e) => {
+        blurInteractiveTarget(e);
+        toggleTheaterMode();
+      }}
       aria-label="Toggle theater mode"
       aria-pressed={theaterMode}
     >
@@ -576,7 +620,10 @@
       </svg>
       Theater {theaterMode ? 'On' : 'Off'}
     </button>
-    <button class="control-btn" on:click={exitGame} aria-label="Exit to menu">
+    <button class="control-btn" on:click={(e) => {
+      blurInteractiveTarget(e);
+      exitGame();
+    }} aria-label="Exit to menu">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
       </svg>

@@ -1,29 +1,25 @@
 <script>
   import { onMount } from 'svelte';
-  import { BUILTIN_GAMES, saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
-  import { currentView, previousView } from '$lib/stores/viewStore.js';
+  import { BUILTIN_GAMES } from '$lib/stores/gameStore.js';
   import { sidebarCollapsed, sidebarDrawerOpen } from '$lib/stores/sidebarStore.js';
   import { isMobile } from '$lib/utils/mobile.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
-  import { getSettings, saveSettings, removeFromRomLibrary, getSaveStateMeta, clearSaveStateMeta } from '$lib/services/storage.js';
-  import { showConfirm } from '$lib/services/dialog.js';
+  import {
+    getSettings,
+    saveSettings,
+    saveStateMetaByRom,
+  } from '$lib/services/storage.js';
+  import { confirmAndRemoveRom } from '$lib/services/romLibraryActions.js';
 
   export let onLoadGame = (id) => {};
   export let onLoadRom = (id) => {};
   export let onOpenSettings = () => {};
+  export let onShowLibrary = () => {};
   export let onCloseDrawer = () => {};
-
-  let myGamesExpanded = false;
 
   $: recentlyAddedRoms = [...$romLibrary]
     .sort((a, b) => (b.addedAt ?? b.lastPlayed ?? 0) - (a.addedAt ?? a.lastPlayed ?? 0))
     .slice(0, 3);
-  $: _ = $saveStateRefreshTrigger; // refresh save state indicators when auto-save completes
-
-  function showView(view) {
-    previousView.set($currentView);
-    currentView.set(view);
-  }
 
   function toggleSidebar() {
     if (isMobile()) {
@@ -50,123 +46,138 @@
     onOpenSettings();
     if (isMobile()) onCloseDrawer();
   }
-  function handleShowEmulatorAndClose() {
-    showView('emulator');
+  async function handleShowEmulatorAndClose() {
+    await onShowLibrary();
     if (isMobile()) onCloseDrawer();
-  }
-
-  function toggleMyGames() {
-    myGamesExpanded = !myGamesExpanded;
-    const s = getSettings();
-    s.myGamesExpanded = myGamesExpanded;
-    saveSettings(s);
   }
 
   async function handleRemoveRom(rom, e) {
     e?.stopPropagation?.();
-    const ok = await showConfirm(`Remove "${rom.name}" from library?`);
-    if (ok) {
-      await removeFromRomLibrary(rom.id);
-      clearSaveStateMeta(rom.id);
-      romLibrary.refresh();
-    }
+    await confirmAndRemoveRom(rom);
   }
 
-  function handleActivateKey(e, fn) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      fn();
-    }
+  let scrollWrapperEl;
+  let scrollEl;
+
+  function updateScrollAffordance() {
+    if (!scrollWrapperEl || !scrollEl) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+    const hasScroll = scrollHeight > clientHeight;
+    scrollWrapperEl.classList.toggle('has-scroll-top', hasScroll && scrollTop > 4);
+    scrollWrapperEl.classList.toggle('has-scroll-bottom', hasScroll && scrollTop < scrollHeight - clientHeight - 4);
   }
 
   onMount(() => {
     const s = getSettings();
-    sidebarCollapsed.set(s.sidebarCollapsed ?? true);
-    myGamesExpanded = s.myGamesExpanded ?? false;
+    sidebarCollapsed.set(s.sidebarCollapsed ?? false);
+    if (scrollEl) {
+      updateScrollAffordance();
+      const ro = new ResizeObserver(updateScrollAffordance);
+      ro.observe(scrollEl);
+      return () => ro.disconnect();
+    }
   });
 </script>
 
 <aside class="sidebar" class:collapsed={$sidebarCollapsed && !isMobile()} class:drawer-open={$sidebarDrawerOpen} class:drawer-mode={isMobile()}>
-  <button class="sidebar-toggle" on:click={toggleSidebar} aria-label={isMobile() ? 'Close menu' : ($sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')} title={isMobile() ? 'Close menu' : ($sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class:rotated={$sidebarCollapsed}>
-      <path d="M15 18l-6-6 6-6"/>
-    </svg>
-  </button>
-  <div class="sidebar-scrollable">
-    <div class="logo" class:compact={$sidebarCollapsed}>
-      {#if $sidebarCollapsed}
-        <span class="logo-emu">E</span>
-      {:else}
-        <span class="logo-emu">Emu</span><span>Phoria</span>
-      {/if}
-    </div>
-    {#if !$sidebarCollapsed}
-      <p class="sidebar-tagline">Built-in cabinets and a personal ROM shelf.</p>
-    {/if}
-    <button class="section-toggle" on:click={toggleMyGames} aria-expanded={myGamesExpanded} title="My Games">
-      <span class="section-title">My Games</span>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class:rotated={!myGamesExpanded}>
-        <path d="M6 9l6 6 6-6"/>
-      </svg>
-    </button>
-    <div class="game-list" class:collapsed={!myGamesExpanded}>
-      {#each BUILTIN_GAMES as game}
-        <div
-          class="game-card"
-          role="button"
-          tabindex="0"
-        on:click={() => handleLoadGameAndClose(game.id)}
-        on:keydown={(e) => handleActivateKey(e, () => handleLoadGameAndClose(game.id))}
-        >
-          <div class="game-icon">{game.icon}</div>
-          <div class="game-info">
-            <h3>{game.name}</h3>
-            <p>{game.year}</p>
-          </div>
+  <div class="sidebar-header">
+    <div class="sidebar-marquee">
+      <div class="logo" class:compact={$sidebarCollapsed}>
+        {#if $sidebarCollapsed}
+          <span class="logo-emu">E</span>
+        {:else}
+          <span class="logo-emu">Emu</span><span>Phoria</span>
+        {/if}
+      </div>
+      {#if !$sidebarCollapsed}
+        <p class="sidebar-tagline">BROWSER ARCADE</p>
+        <div class="sidebar-status-row" aria-label="Library overview">
+          <span class="sidebar-status-pill">{BUILTIN_GAMES.length} arcade</span>
+          <span class="sidebar-status-pill">{$romLibrary.length} ROM{$romLibrary.length === 1 ? '' : 's'}</span>
         </div>
-      {/each}
-    </div>
-    <div class="section-title sidebar-section-gap">Recently Added</div>
-    <div class="sidebar-library sidebar-library-simple">
-      {#if recentlyAddedRoms.length === 0}
-        <p class="library-empty-hint sidebar-empty-state">No ROMs on the shelf yet</p>
-      {:else}
-        {#each recentlyAddedRoms as rom}
-          <div
-            class="sidebar-rom-item sidebar-rom-item-simple"
-            role="button"
-            tabindex="0"
-            on:click={() => handleLoadRomAndClose(rom.id)}
-            on:keydown={(e) => handleActivateKey(e, () => handleLoadRomAndClose(rom.id))}
-          >
-            <span class="rom-name">{rom.name}</span>
-            {#if getSaveStateMeta(rom.id)}
-              <span class="save-indicator" title="Has save state" aria-label="Has save state">💾</span>
-            {/if}
-            <button
-              class="sidebar-rom-remove"
-              aria-label="Remove from library"
-              title="Remove from library"
-              on:click|stopPropagation={(e) => handleRemoveRom(rom, e)}
-            >×</button>
-          </div>
-        {/each}
       {/if}
     </div>
-    <button class="control-btn sidebar-primary-action" on:click={handleShowEmulatorAndClose}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sidebar-action-icon">
-        <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="1"/>
+    <button class="sidebar-toggle" on:click={toggleSidebar} aria-label={isMobile() ? 'Close menu' : ($sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')} title={isMobile() ? 'Close menu' : ($sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class:rotated={$sidebarCollapsed}>
+        <path d="M15 18l-6-6 6-6"/>
       </svg>
-      Emulator Select
     </button>
   </div>
-  <div class="sidebar-bottom">
-    <button class="control-btn sidebar-primary-action sidebar-footer-action" on:click={handleOpenSettingsAndClose} aria-label="Settings" title="Settings">
+  <div class="sidebar-scroll-wrapper" bind:this={scrollWrapperEl}>
+    <div class="sidebar-scrollable" bind:this={scrollEl} on:scroll={updateScrollAffordance} role="region" aria-label="Library navigation">
+      <div class="sidebar-section">
+        <div class="sidebar-section-header">
+          <span class="sidebar-heading">My Games</span>
+          <span class="sidebar-count-pill">{BUILTIN_GAMES.length}</span>
+        </div>
+        <div class="game-list">
+          {#each BUILTIN_GAMES as game}
+            <button
+              type="button"
+              class="game-card"
+              on:click={() => handleLoadGameAndClose(game.id)}
+            >
+              <span class="game-icon">{game.icon}</span>
+              <span class="game-info">
+                <span class="game-name">{game.name}</span>
+                <span class="game-year">{game.year}</span>
+              </span>
+            </button>
+          {/each}
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-header">
+          <span class="sidebar-heading">Recently Added</span>
+          <span class="sidebar-count-pill">{recentlyAddedRoms.length}</span>
+        </div>
+        <div class="sidebar-library sidebar-library-simple">
+          {#if recentlyAddedRoms.length === 0}
+            <p class="sidebar-empty-state">No ROMs yet — Browse Library to add</p>
+          {:else}
+            {#each recentlyAddedRoms as rom}
+              <div class="sidebar-rom-row">
+                <button
+                  type="button"
+                  class="sidebar-rom-item sidebar-rom-item-simple"
+                  on:click={() => handleLoadRomAndClose(rom.id)}
+                  aria-label={`Load ${rom.name}`}
+                >
+                  <span class="rom-name">{rom.name}</span>
+                  {#if $saveStateMetaByRom[rom.id]}
+                    <span class="save-indicator" title="Has save state" aria-label="Has save state">💾</span>
+                  {/if}
+                </button>
+                <button
+                  type="button"
+                  class="sidebar-rom-remove"
+                  aria-label={`Remove ${rom.name} from library`}
+                  title={`Remove ${rom.name} from library`}
+                  on:click|stopPropagation={(e) => handleRemoveRom(rom, e)}
+                >×</button>
+              </div>
+            {/each}
+          {/if}
+        </div>
+      </div>
+      <button type="button" class="sidebar-browse-btn" on:click={handleShowEmulatorAndClose}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sidebar-action-icon">
+          <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="1"/>
+        </svg>
+        Browse Library
+      </button>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <button type="button" class="sidebar-settings-btn" on:click={handleOpenSettingsAndClose} aria-label="Settings" title="Settings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-action-icon">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
-      <span>Settings</span>
+      {#if !$sidebarCollapsed}
+        <span>Settings</span>
+      {/if}
     </button>
   </div>
 </aside>

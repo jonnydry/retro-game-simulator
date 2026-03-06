@@ -1,11 +1,11 @@
 import { writable } from 'svelte/store';
-import { getSettings } from '$lib/services/storage.js';
+import { DEFAULT_SETTINGS, getSettings } from '$lib/services/storage.js';
 
 const initial = (() => {
   try {
-    return getSettings().sidebarCollapsed ?? true;
+    return getSettings().sidebarCollapsed;
   } catch {
-    return false;
+    return DEFAULT_SETTINGS.sidebarCollapsed;
   }
 })();
 

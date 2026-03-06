@@ -1,4 +1,36 @@
+import { writable } from 'svelte/store';
+import { DEFAULT_THEME } from './theme.js';
+
 const STORAGE_KEY = 'retroArcade_data';
+
+export const DEFAULT_SETTINGS = Object.freeze({
+  soundEnabled: false,
+  showHints: true,
+  resolution: 'auto',
+  uiScale: 1.25,
+  theme: DEFAULT_THEME,
+  sidebarCollapsed: false,
+  watchFoldersEnabled: false
+});
+
+function cloneSaveStateMeta(nextSaveStates) {
+  if (!nextSaveStates || typeof nextSaveStates !== 'object') return {};
+
+  const cloned = {};
+  for (const [romId, slots] of Object.entries(nextSaveStates)) {
+    cloned[romId] = slots && typeof slots === 'object' ? { ...slots } : {};
+  }
+  return cloned;
+}
+
+let saveStateMetaCache = cloneSaveStateMeta(getSavedData().saveStates);
+
+export const saveStateMetaByRom = writable(saveStateMetaCache);
+
+function syncSaveStateMetaCache(nextSaveStates) {
+  saveStateMetaCache = cloneSaveStateMeta(nextSaveStates);
+  saveStateMetaByRom.set(saveStateMetaCache);
+}
 
 export function getSavedData() {
   try {
@@ -12,6 +44,7 @@ export function getSavedData() {
 export function saveData(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    syncSaveStateMetaCache(data.saveStates);
     return true;
   } catch (e) {
     if (e.name === 'QuotaExceededError') {
@@ -41,15 +74,9 @@ export function setHighScore(gameId, score) {
 
 export function getSettings() {
   const data = getSavedData();
-  return data.settings || {
-    soundEnabled: false,
-    showHints: true,
-    difficulty: 'normal',
-    resolution: 'auto',
-    uiScale: 1.25,
-    sidebarCollapsed: true,
-    myGamesExpanded: false,
-    watchFoldersEnabled: false
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(data.settings || {})
   };
 }
 
@@ -64,8 +91,7 @@ export function saveSettings(settings) {
  * Tracks when user saved state for each ROM/slot so we can show indicators.
  */
 export function getSaveStateMeta(romId) {
-  const data = getSavedData();
-  return data.saveStates?.[romId] || null;
+  return saveStateMetaCache[romId] || null;
 }
 
 export function setSaveStateMeta(romId, slot, savedAt = Date.now()) {

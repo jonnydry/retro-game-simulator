@@ -1,12 +1,11 @@
 <script>
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
-  import { saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
   import { systemDisplayNames } from '$lib/config/systems.js';
   import { systemIcons } from '$lib/config/systems.js';
   import { enabledSystems } from '$lib/stores/systemStore.js';
   import { getThumbnailUrl } from '$lib/services/thumbnailService.js';
-  import { removeFromRomLibrary, getSaveStateMeta, clearSaveStateMeta } from '$lib/services/storage.js';
-  import { showConfirm } from '$lib/services/dialog.js';
+  import { saveStateMetaByRom } from '$lib/services/storage.js';
+  import { confirmAndRemoveRom } from '$lib/services/romLibraryActions.js';
 
   export let onOpenRomDialog = (system) => {};
   export let onLoadRom = (id) => {};
@@ -22,19 +21,7 @@
 
   async function handleRemoveRom(rom, e) {
     e?.stopPropagation?.();
-    const ok = await showConfirm(`Remove "${rom.name}" from library?`);
-    if (ok) {
-      await removeFromRomLibrary(rom.id);
-      clearSaveStateMeta(rom.id);
-      romLibrary.refresh();
-    }
-  }
-
-  function handleActivateKey(e, fn) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      fn();
-    }
+    await confirmAndRemoveRom(rom);
   }
 
   $: countBySystem = {};
@@ -46,7 +33,6 @@
     countBySystem = counts;
   }
 
-  $: _ = $saveStateRefreshTrigger; // refresh save state indicators when auto-save completes
   $: libraryBySystem = {};
   $: {
     const lib = $romLibrary;
@@ -58,7 +44,8 @@
           ...r,
           thumbnail: getThumbnailUrl(r.name, r.system),
           fallbackIcon: systemIcons[r.system] || null,
-          activityText: formatTimeAgo(r.lastPlayed ?? r.addedAt ?? 0)
+          activityText: formatTimeAgo(r.lastPlayed ?? r.addedAt ?? 0),
+          hasSaveState: Boolean($saveStateMetaByRom[r.id])
         });
       }
     });
@@ -69,16 +56,6 @@
 
 <div class="main-view emulator-view">
   <div class="emulator-scroll">
-    <div class="emulator-logo-header">
-      <img src="/logo-icon-96.png" alt="" class="emulator-logo-icon" aria-hidden="true" />
-      <span class="logo-emu">Emu</span><span>Phoria</span>
-    </div>
-    <div class="emulator-intro">
-      <p class="home-kicker">ROM Library</p>
-      <p class="emulator-subtitle">
-        Import a cartridge, disc, or archive by system, then launch it from your shelf below.
-      </p>
-    </div>
     <div class="systems-roulette-wrapper">
       <nav class="systems-roulette-bar" aria-label="Game systems">
         <div class="systems-roulette-track">
@@ -118,52 +95,64 @@
               </summary>
               <div class="library-system-list">
                 {#each libraryBySystem[sys] || [] as rom}
-                  <div
-                    class="library-rom-item"
-                    role="button"
-                    tabindex="0"
-                    on:click={() => onLoadRom(rom.id)}
-                    on:keydown={(e) => handleActivateKey(e, () => onLoadRom(rom.id))}
-                  >
-                    <div class="library-rom-thumbnail">
-                      {#if rom.thumbnail}
-                        <img
-                          src={rom.thumbnail}
-                          alt=""
-                          on:error={(e) => {
-                            e.target.style.display = 'none';
-                            const fallback = e.target.nextElementSibling;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                        />
-                      {/if}
-                      <div
-                        class="library-rom-thumbnail-fallback"
-                        style="display: {rom.thumbnail ? 'none' : 'flex'}"
-                        aria-hidden="true"
-                      >
-                        {#if rom.fallbackIcon}
-                          {@html rom.fallbackIcon}
-                        {:else}
-                          <span class="library-rom-thumbnail-placeholder">{rom.system.substring(0,2).toUpperCase()}</span>
-                        {/if}
-                      </div>
-                    </div>
-                    <div class="library-rom-info">
-                      <div class="library-rom-name">{rom.name}</div>
-                      <div class="library-rom-meta">
-                        <span class="library-pill">{rom.activityText}</span>
-                        {#if getSaveStateMeta(rom.id)}
-                          <span class="library-pill library-pill-save" title="Has save state" aria-label="Has save state">Save state</span>
-                        {/if}
-                      </div>
-                    </div>
+                  <div class="library-rom-row">
                     <button
+                      type="button"
+                      class="library-rom-item"
+                      on:click={() => onLoadRom(rom.id)}
+                      aria-label={`Load ${rom.name}`}
+                    >
+                      <div class="library-rom-thumbnail">
+                        {#if rom.thumbnail}
+                          <img
+                            src={rom.thumbnail}
+                            alt=""
+                            on:error={(e) => {
+                              const target = e.currentTarget;
+                              if (!(target instanceof HTMLElement)) return;
+                              target.style.display = 'none';
+                              const fallback = target.nextElementSibling;
+                              if (fallback instanceof HTMLElement) fallback.style.display = 'flex';
+                            }}
+                          />
+                        {/if}
+                        <div
+                          class="library-rom-thumbnail-fallback"
+                          style="display: {rom.thumbnail ? 'none' : 'flex'}"
+                          aria-hidden="true"
+                        >
+                          {#if rom.fallbackIcon}
+                            {@html rom.fallbackIcon}
+                          {:else}
+                            <span class="library-rom-thumbnail-placeholder">{rom.system.substring(0,2).toUpperCase()}</span>
+                          {/if}
+                        </div>
+                      </div>
+                      <div class="library-rom-info">
+                        <div class="library-rom-name">{rom.name}</div>
+                        <div class="library-rom-meta">
+                          <span class="library-pill">{rom.activityText}</span>
+                          {#if rom.hasSaveState}
+                            <span class="library-pill library-pill-save" title="Has save state" aria-label="Has save state">Save state</span>
+                          {/if}
+                        </div>
+                      </div>
+                      <span class="library-rom-action" aria-hidden="true">Play</span>
+                    </button>
+                    <button
+                      type="button"
                       class="remove-btn"
-                      aria-label="Remove from library"
-                      title="Remove from library"
+                      aria-label={`Remove ${rom.name} from library`}
+                      title={`Remove ${rom.name} from library`}
                       on:click|stopPropagation={(e) => handleRemoveRom(rom, e)}
-                    >Remove</button>
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 6h18"/>
+                        <path d="M8 6V4h8v2"/>
+                        <path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                      </svg>
+                    </button>
                   </div>
                 {/each}
               </div>

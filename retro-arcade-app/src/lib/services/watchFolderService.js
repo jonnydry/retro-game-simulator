@@ -18,11 +18,50 @@ const POLL_MAX_INTERVAL_MS = 300000; // 5 minutes
 
 let pollTimeout = null;
 let pollDelayMs = POLL_INTERVAL_MS;
-let isWatching = false;
+let isWatchingEnabled = false;
+let isWatchingActive = true;
 let pollInFlight = null;
+let visibilityListenerAttached = false;
 
 export function isSupported() {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window && 'FileSystemDirectoryHandle' in window;
+}
+
+function clearScheduledPoll() {
+  if (pollTimeout) {
+    clearTimeout(pollTimeout);
+    pollTimeout = null;
+  }
+}
+
+function isPageVisible() {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
+function canPoll() {
+  return isWatchingEnabled && isWatchingActive && isPageVisible();
+}
+
+function handleVisibilityChange() {
+  if (canPoll()) {
+    pollDelayMs = POLL_INTERVAL_MS;
+    void runPollingCycle();
+    return;
+  }
+
+  clearScheduledPoll();
+}
+
+function attachVisibilityListener() {
+  if (visibilityListenerAttached || typeof document === 'undefined') return;
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  visibilityListenerAttached = true;
+}
+
+function detachVisibilityListener() {
+  if (!visibilityListenerAttached || typeof document === 'undefined') return;
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  visibilityListenerAttached = false;
 }
 
 function openDB() {
@@ -117,6 +156,9 @@ async function scanDirectory(handle, basePath = '', depth = 0) {
  */
 function gameBaseForDedupe(fileName) {
   const base = fileName.replace(/\.[^.]+$/, '').trim();
+  if (/\((disc|disk|cd)\s*[0-9a-z]+\)$/i.test(base)) {
+    return base;
+  }
   return base.replace(/\s*\([^)]*\)\s*$/, '').trim() || base;
 }
 
@@ -127,10 +169,8 @@ async function importRomFromHandle(fileHandle, system) {
       `ROM too large (${formatBytes(file.size)}). Limit is ${formatBytes(MAX_ROM_FILE_SIZE_BYTES)}`
     );
   }
-  const arrayBuffer = await file.arrayBuffer();
   const romName = normalizeRomDisplayName(file.name);
-  const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
-  await addToRomLibrary(romName, system, blob);
+  await addToRomLibrary(romName, system, file);
 }
 
 export async function scanFolderForRoms(handle) {
@@ -143,16 +183,21 @@ export async function scanFolderForRoms(handle) {
   const romFiles = await scanDirectory(handle, handle.name || '');
   const seenInScan = new Set(); // dedupe same file from root + subfolder
   let added = 0;
+  let skippedAmbiguous = 0;
 
   for (const { handle: fileHandle, name, path } of romFiles) {
     const system = inferSystemFromFileName(name) || inferSystemFromFolderPath(path);
-    if (!system) continue;
+    if (!system) {
+      skippedAmbiguous++;
+      continue;
+    }
     if (system === DREAMCAST_SYSTEM_ID && !isDreamcastAvailable()) continue;
 
-    const key = `${name}|${system}`;
+    const normalizedName = normalizeRomDisplayName(name);
+    const key = `${normalizedName}|${system}`;
     if (known.has(key)) continue;
 
-    const gameBase = gameBaseForDedupe(name);
+    const gameBase = gameBaseForDedupe(normalizedName);
     const gameBaseKey = `${system}|${gameBase}`;
     if (gameBasesInLibrary.has(gameBaseKey)) continue;
     if (seenInScan.has(gameBaseKey)) continue;
@@ -173,17 +218,19 @@ export async function scanFolderForRoms(handle) {
   }
 
   if (added > 0) romLibrary.refresh();
-  return added;
+  return { added, skippedAmbiguous };
 }
 
 async function pollAllFolders() {
   const folders = await getWatchedFolders();
   let totalAdded = 0;
+  let totalSkippedAmbiguous = 0;
   for (const { handle } of folders) {
     if (handle) {
       try {
-        const added = await scanFolderForRoms(handle);
-        totalAdded += added;
+        const result = await scanFolderForRoms(handle);
+        totalAdded += result.added;
+        totalSkippedAmbiguous += result.skippedAmbiguous;
       } catch (err) {
         console.warn('Watch folder: scan failed', err);
         if (err?.message?.includes('quota') || err?.message?.includes('Storage')) {
@@ -192,7 +239,10 @@ async function pollAllFolders() {
       }
     }
   }
-  return totalAdded;
+  return {
+    added: totalAdded,
+    skippedAmbiguous: totalSkippedAmbiguous
+  };
 }
 
 async function pollAllFoldersOnce() {
@@ -208,20 +258,19 @@ async function pollAllFoldersOnce() {
 }
 
 function scheduleNextPoll() {
-  if (!isWatching) return;
-  if (pollTimeout) {
-    clearTimeout(pollTimeout);
-    pollTimeout = null;
-  }
+  if (!canPoll()) return;
+  clearScheduledPoll();
   pollTimeout = setTimeout(() => {
     void runPollingCycle();
   }, pollDelayMs);
 }
 
 async function runPollingCycle() {
+  if (!canPoll()) return;
+
   try {
-    const added = await pollAllFoldersOnce();
-    pollDelayMs = added > 0 ? POLL_INTERVAL_MS : Math.min(POLL_MAX_INTERVAL_MS, pollDelayMs * 2);
+    const result = await pollAllFoldersOnce();
+    pollDelayMs = result.added > 0 ? POLL_INTERVAL_MS : Math.min(POLL_MAX_INTERVAL_MS, pollDelayMs * 2);
   } catch (err) {
     pollDelayMs = POLL_INTERVAL_MS;
   } finally {
@@ -232,34 +281,60 @@ async function runPollingCycle() {
 export function startWatching(enabled) {
   if (!isSupported()) return;
 
-  if (pollTimeout) {
-    clearTimeout(pollTimeout);
-    pollTimeout = null;
-  }
-  pollDelayMs = POLL_INTERVAL_MS;
-  isWatching = false;
+  const nextEnabled = Boolean(enabled);
 
-  if (enabled) {
-    isWatching = true;
+  if (isWatchingEnabled === nextEnabled) {
+    if (!nextEnabled) return;
+    attachVisibilityListener();
+    if (!canPoll()) {
+      clearScheduledPoll();
+    }
+    return;
+  }
+
+  isWatchingEnabled = nextEnabled;
+  pollDelayMs = POLL_INTERVAL_MS;
+  clearScheduledPoll();
+
+  if (nextEnabled) {
+    attachVisibilityListener();
+    if (canPoll()) {
+      void runPollingCycle();
+    }
+  } else {
+    detachVisibilityListener();
+  }
+}
+
+export function setWatchingActive(active) {
+  if (!isSupported()) return;
+
+  const nextActive = Boolean(active);
+  if (isWatchingActive === nextActive) return;
+
+  isWatchingActive = nextActive;
+  clearScheduledPoll();
+
+  if (canPoll()) {
     void runPollingCycle();
   }
 }
 
 export function stopWatching() {
-  if (pollTimeout) {
-    clearTimeout(pollTimeout);
-    pollTimeout = null;
-  }
+  clearScheduledPoll();
   pollDelayMs = POLL_INTERVAL_MS;
-  isWatching = false;
+  isWatchingEnabled = false;
+  detachVisibilityListener();
 }
 
 export async function scanNow() {
-  if (!isSupported()) return 0;
-  const added = await pollAllFoldersOnce();
-  if (isWatching) {
+  if (!isSupported()) {
+    return { added: 0, skippedAmbiguous: 0 };
+  }
+  const result = await pollAllFoldersOnce();
+  if (isWatchingEnabled) {
     pollDelayMs = POLL_INTERVAL_MS;
     scheduleNextPoll();
   }
-  return added;
+  return result;
 }
