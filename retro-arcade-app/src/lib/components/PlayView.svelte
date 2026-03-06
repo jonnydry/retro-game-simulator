@@ -490,18 +490,21 @@
         {/if}
         <button class="restart-btn" on:click={restartGame}>Play Again</button>
       </div>
-      <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
       <div
         class="emulator-container"
         class:active={showEmulator}
         bind:this={emulatorContainerEl}
-        on:click|capture={handleEmulatorOverlayClick}
       >
         <div id="emulator" bind:this={emulatorEl}></div>
         {#if showEmulator && emulatorNeedsInteraction}
-          <div class="emulator-click-overlay" aria-hidden="true">
+          <button
+            type="button"
+            class="emulator-click-overlay"
+            on:click={handleEmulatorOverlayClick}
+            aria-label="Click or press Enter to start the emulator"
+          >
             Click to start
-          </div>
+          </button>
         {/if}
       </div>
     </div>

@@ -3,6 +3,8 @@
  * Uses Named_Boxarts for cover art. No API key required.
  */
 
+import { normalizeRomDisplayName } from '../utils/romName.js';
+
 const LIBRETRO_BASE = 'https://thumbnails.libretro.com';
 const THUMB_TYPE = 'Named_Boxarts';
 
@@ -36,7 +38,7 @@ export function getThumbnailUrl(romName, system) {
   const folder = systemToLibRetroFolder[system];
   if (!folder || !romName?.trim()) return null;
 
-  const safeName = romName.trim();
+  const safeName = normalizeRomDisplayName(romName);
   const encodedFolder = encodeURIComponent(folder);
   const encodedFile = encodeURIComponent(safeName + '.png');
 

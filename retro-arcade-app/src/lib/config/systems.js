@@ -5,7 +5,7 @@ export const systemOrder = [
   'sms', 'n64', 'psx', 'pce', 'ngp', 'ws', DREAMCAST_SYSTEM_ID
 ];
 
-export const defaultEnabledSystems = [...systemOrder];
+export const defaultEnabledSystems = systemOrder.filter((system) => system !== DREAMCAST_SYSTEM_ID);
 
 export const systemDisplayNames = {
   nes: 'NES', snes: 'SNES', gb: 'Game Boy', gbc: 'GBC',

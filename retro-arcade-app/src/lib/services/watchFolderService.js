@@ -8,6 +8,7 @@ import {
 import { DREAMCAST_SYSTEM_ID } from '$lib/config/systems.js';
 import { MAX_ROM_FILE_SIZE_BYTES, formatBytes } from '$lib/config/security.js';
 import { inferSystemFromFolderPath } from '$lib/services/pathSystemInference.js';
+import { normalizeRomDisplayName } from '$lib/utils/romName.js';
 
 const DB_NAME = 'RetroArcadeWatch';
 const DB_VERSION = 1;
@@ -127,8 +128,7 @@ async function importRomFromHandle(fileHandle, system) {
     );
   }
   const arrayBuffer = await file.arrayBuffer();
-  /* Use full filename as name so "game.nes" and "game.zip" stay distinct */
-  const romName = file.name;
+  const romName = normalizeRomDisplayName(file.name);
   const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
   await addToRomLibrary(romName, system, blob);
 }

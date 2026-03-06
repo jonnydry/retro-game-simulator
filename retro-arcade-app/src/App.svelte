@@ -30,6 +30,7 @@
   import { startWatching } from '$lib/services/watchFolderService.js';
   import { enabledSystems, setDreamcastEnabled } from '$lib/stores/systemStore.js';
   import { isMobile } from '$lib/utils/mobile.js';
+  import { normalizeRomDisplayName } from '$lib/utils/romName.js';
 
   function openDrawer() {
     sidebarDrawerOpen.set(true);
@@ -49,6 +50,11 @@
   function showView(view) {
     previousView.set($currentView);
     currentView.set(view);
+  }
+
+  function clearPendingRomLoad() {
+    pendingRomLoadId.set(null);
+    window.__onStartPendingRomLoad = null;
   }
 
   function waitForPlayViewApi(timeoutMs = 5000) {
@@ -76,6 +82,7 @@
   async function handleLoadGame(id) {
     const romId = get(currentRomId);
     await attemptAutoSaveRomState(romId);
+    clearPendingRomLoad();
     stopEmulator();
     stopGameAudio();
     currentGame.set(id);
@@ -86,6 +93,7 @@
   async function handleLoadRom(id) {
     const romIdToSave = get(currentRomId);
     if (romIdToSave && romIdToSave !== id) await attemptAutoSaveRomState(romIdToSave);
+    clearPendingRomLoad();
     stopGameAudio();
     currentGame.set(null);
     currentRomId.set(id);
@@ -107,7 +115,7 @@
     playViewApi?.setRomInfo?.('Click to load game');
 
     window.__onStartPendingRomLoad = async () => {
-      pendingRomLoadId.set(null);
+      clearPendingRomLoad();
       playViewApi?.setShowEmulator?.(true);
       playViewApi?.setRomInfo?.('Loading ROM…');
       const loaded = await loadRomFromLibrary(id, {
@@ -126,6 +134,7 @@
           await playViewApi?.promptResumeFromSave?.(opts);
         },
         onError: (msg) => {
+          clearPendingRomLoad();
           playViewApi?.setRomInfo?.(msg || 'Failed to load emulator');
           playViewApi?.setEmulatorRunning?.(false);
           playViewApi?.refreshEmulatorCapabilities?.();
@@ -139,6 +148,7 @@
         return;
       }
       if (!loaded) {
+        clearPendingRomLoad();
         playViewApi?.setEmulatorRunning?.(false);
         playViewApi?.refreshEmulatorCapabilities?.();
         playViewApi?.setShowEmulator?.(false);
@@ -174,14 +184,33 @@
     romFileInput?.click();
   }
 
-  let beforeunloadHandler = null;
+  let autoSaveInFlight = null;
+  let visibilityChangeHandler = null;
+  let pageHideHandler = null;
+
+  async function queueBackgroundAutoSave() {
+    const romId = get(currentRomId);
+    if (!romId) return;
+    if (autoSaveInFlight) return autoSaveInFlight;
+    autoSaveInFlight = attemptAutoSaveRomState(romId).finally(() => {
+      autoSaveInFlight = null;
+    });
+    return autoSaveInFlight;
+  }
+
   onMount(async () => {
     window.__stopEmulator = stopEmulator;
-    beforeunloadHandler = () => {
-      const romId = get(currentRomId);
-      if (romId) attemptAutoSaveRomState(romId);
+    window.__onStartPendingRomLoad = null;
+    visibilityChangeHandler = () => {
+      if (document.visibilityState === 'hidden') {
+        void queueBackgroundAutoSave();
+      }
     };
-    window.addEventListener('beforeunload', beforeunloadHandler);
+    pageHideHandler = () => {
+      void queueBackgroundAutoSave();
+    };
+    document.addEventListener('visibilitychange', visibilityChangeHandler);
+    window.addEventListener('pagehide', pageHideHandler);
     // Run critical storage init first; Dreamcast in parallel (hidden on mobile)
     const [dreamcastAvailable] = await Promise.all([
       initializeDreamcastSupport(),
@@ -202,21 +231,28 @@
   });
 
   onDestroy(() => {
-    if (beforeunloadHandler) {
-      window.removeEventListener('beforeunload', beforeunloadHandler);
-      beforeunloadHandler = null;
+    clearPendingRomLoad();
+    if (visibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', visibilityChangeHandler);
+      visibilityChangeHandler = null;
+    }
+    if (pageHideHandler) {
+      window.removeEventListener('pagehide', pageHideHandler);
+      pageHideHandler = null;
     }
   });
 
   async function handleRomFileChange(e) {
     const romIdToSave = get(currentRomId);
     if (romIdToSave) await attemptAutoSaveRomState(romIdToSave);
+    clearPendingRomLoad();
     stopGameAudio();
     currentGame.set(null);
     currentRomId.set(null);
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
+    const displayName = normalizeRomDisplayName(file.name);
     showView('play');
     let playViewApi;
     try {
@@ -232,12 +268,12 @@
     playViewApi?.setShowEmulator?.(true);
     const result = await loadRomFromFile(file, pendingRomPick.system, pendingRomPick.mode, {
       onGameStart: () => {
-        playViewApi?.setRomInfo?.(`Playing: ${file.name}`);
+        playViewApi?.setRomInfo?.(`Playing: ${displayName}`);
         playViewApi?.setEmulatorRunning?.(true);
         playViewApi?.refreshEmulatorCapabilities?.();
       },
       onReady: async (opts) => {
-        playViewApi?.setRomInfo?.(`Ready: ${file.name}`);
+        playViewApi?.setRomInfo?.(`Ready: ${displayName}`);
         playViewApi?.setShowEmulator?.(true);
         playViewApi?.setShowPressStart?.(false);
         playViewApi?.setEmulatorRunning?.(true);
@@ -256,6 +292,7 @@
       }
     });
     if (!result) {
+      clearPendingRomLoad();
       playViewApi?.setEmulatorRunning?.(false);
       playViewApi?.refreshEmulatorCapabilities?.();
       playViewApi?.setShowEmulator?.(false);
@@ -264,7 +301,8 @@
       return;
     }
     if (result.romId) currentRomId.set(result.romId);
-    playViewApi?.setGameTitle?.(file.name.replace(/\.[^/.]+$/, ''));
+    playViewApi?.setCurrentRomSystem?.(result.system || pendingRomPick.system);
+    playViewApi?.setGameTitle?.(result.displayName || displayName);
     playViewApi?.setEmulatorRunning?.(true);
     playViewApi?.refreshEmulatorCapabilities?.();
     playViewApi?.applyResolution?.();

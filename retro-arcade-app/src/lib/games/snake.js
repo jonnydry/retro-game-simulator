@@ -1,5 +1,21 @@
 const GRID_SIZE = 20;
 
+function getNextFoodCell(snake, cols, rows) {
+  const occupied = new Set(snake.map((segment) => `${segment.x},${segment.y}`));
+  const freeCells = [];
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (!occupied.has(`${x},${y}`)) {
+        freeCells.push({ x, y });
+      }
+    }
+  }
+
+  if (freeCells.length === 0) return null;
+  return freeCells[Math.floor(Math.random() * freeCells.length)];
+}
+
 export function initSnake() {
   return {
     gridSize: GRID_SIZE,
@@ -49,11 +65,11 @@ export function updateSnake(state, ctx, canvas, getKeys, playSound, timestamp) {
 
   if (head.x === s.food.x && head.y === s.food.y) {
     s.score += 10;
-    s.food = {
-      x: Math.floor(Math.random() * cols),
-      y: Math.floor(Math.random() * rows)
-    };
+    s.food = getNextFoodCell(s.snake, cols, rows);
     s.speed = Math.max(50, s.speed - 2);
+    if (!s.food) {
+      return { gameOver: true, score: s.score };
+    }
   } else {
     s.snake.pop();
   }
@@ -75,7 +91,9 @@ export function updateSnake(state, ctx, canvas, getKeys, playSound, timestamp) {
   }
 
   ctx.fillStyle = '#ff5c8d';
-  ctx.fillRect(s.food.x * s.gridSize, s.food.y * s.gridSize, s.gridSize, s.gridSize);
+  if (s.food) {
+    ctx.fillRect(s.food.x * s.gridSize, s.food.y * s.gridSize, s.gridSize, s.gridSize);
+  }
 
   return { gameOver: false, score: s.score };
 }

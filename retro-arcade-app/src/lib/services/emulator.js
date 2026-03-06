@@ -11,6 +11,7 @@ import { MAX_ROM_FILE_SIZE_BYTES, formatBytes } from '$lib/config/security.js';
 import { romLibrary } from '$lib/stores/romLibraryStore.js';
 import { saveStateRefreshTrigger } from '$lib/stores/gameStore.js';
 import { showAlert, showConfirm } from '$lib/services/dialog.js';
+import { normalizeRomDisplayName } from '$lib/utils/romName.js';
 
 const DEFAULT_EJS_CDN = ensureTrailingSlash(
   import.meta.env.VITE_EMULATOR_DATA_PATH || 'https://cdn.emulatorjs.org/stable/data/'
@@ -29,6 +30,7 @@ let createElementPatchRestore = null;
 let dreamcastSupportInitialized = false;
 let dreamcastSupportAvailable = false;
 let dreamcastDataPath = '';
+let pendingSaveStateCapture = null;
 const MENU_BUTTON_SELECTORS = [
   '[data-ejs="menu"]',
   '.ejs_menu_button',
@@ -406,10 +408,37 @@ export function saveEmulatorState(slot = 0) {
  * Returns true if the emulator saved successfully (even if blob capture failed).
  */
 export async function saveEmulatorStateAndCapture(romId, slot = 0) {
-  if (!saveEmulatorState(slot)) return false;
-  await new Promise((r) => setTimeout(r, 500));
-  const emu = getEmulatorInstance();
-  const blob = await tryGetSaveStateBlobFromEmulator(emu, slot);
+  const waitForCapture = romId
+    ? new Promise((resolve) => {
+        const timeoutId = setTimeout(() => {
+          if (pendingSaveStateCapture?.romId === romId && pendingSaveStateCapture?.slot === slot) {
+            pendingSaveStateCapture = null;
+          }
+          resolve(null);
+        }, 250);
+        pendingSaveStateCapture = {
+          romId,
+          slot,
+          resolve: (blob) => {
+            clearTimeout(timeoutId);
+            pendingSaveStateCapture = null;
+            resolve(blob);
+          }
+        };
+      })
+    : Promise.resolve(null);
+
+  if (!saveEmulatorState(slot)) {
+    if (pendingSaveStateCapture?.romId === romId && pendingSaveStateCapture?.slot === slot) {
+      pendingSaveStateCapture.resolve(null);
+    }
+    return false;
+  }
+  let blob = await waitForCapture;
+  if (!blob) {
+    const emu = getEmulatorInstance();
+    blob = await tryGetSaveStateBlobFromEmulator(emu, slot);
+  }
   if (blob && romId) {
     try {
       await saveSaveStateBlob(romId, slot, blob);
@@ -496,6 +525,7 @@ export function silenceAndRemoveIframes(container) {
 }
 
 export function stopEmulator() {
+  pendingSaveStateCapture = null;
   if (createElementPatchRestore) createElementPatchRestore();
 
   if (typeof window !== 'undefined') {
@@ -678,7 +708,7 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
   stopEmulator();
 
   const arrayBuffer = await file.arrayBuffer();
-  const romName = file.name.replace(/\.[^/.]+$/, '');
+  const romName = normalizeRomDisplayName(file.name);
   const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
 
   let romId = null;
@@ -704,7 +734,7 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
       callbacks?.onError?.('Failed to load emulator');
     }
   }, loadOpts);
-  return { loaded: true, romId };
+  return { loaded: true, romId, system, displayName: romName };
 }
 
 const PENDING_ROM_KEY = 'emumphoria_pendingRomId';
@@ -778,7 +808,14 @@ async function handleSaveStateCapture(romId, ...eventArgs) {
   const emu = getEmulatorInstance();
   if (!emu || !romId) return;
   const slot = 0;
-  const blob = await tryGetSaveStateBlobFromEmulator(emu, slot);
+  let blob = getBlobFromSaveStateArgs(eventArgs);
+  if (!blob) {
+    blob = await tryGetSaveStateBlobFromEmulator(emu, slot);
+  }
+  if (pendingSaveStateCapture?.romId === romId && pendingSaveStateCapture?.slot === slot) {
+    pendingSaveStateCapture.resolve(blob || null);
+    return;
+  }
   if (blob) {
     try {
       await saveSaveStateBlob(romId, slot, blob);
@@ -786,6 +823,15 @@ async function handleSaveStateCapture(romId, ...eventArgs) {
       console.warn('Failed to store save state', e);
     }
   }
+}
+
+function getBlobFromSaveStateArgs(eventArgs = []) {
+  for (const arg of eventArgs) {
+    if (arg instanceof Blob) return arg;
+    if (arg?.state instanceof Blob) return arg.state;
+    if (arg?.blob instanceof Blob) return arg.blob;
+  }
+  return null;
 }
 
 async function tryGetSaveStateBlobFromEmulator(emu, slot) {
