@@ -56,7 +56,11 @@
     updateGamepadStatus();
     loadWatchedFolders();
     showSettings = true;
-    tick().then(() => focusFirstElement(settingsPanelEl));
+    tick().then(() => {
+      focusFirstElement(settingsPanelEl);
+      const content = settingsPanelEl?.querySelector('.settings-content');
+      if (content) content.scrollTop = 0;
+    });
     if (typeof window !== 'undefined') {
       window.addEventListener('gamepadconnected', updateGamepadStatus);
       window.addEventListener('gamepaddisconnected', updateGamepadStatus);
@@ -212,8 +216,6 @@
       class="settings-backdrop"
       aria-hidden="true"
       on:click={close}
-      on:wheel|preventDefault
-      on:touchmove|preventDefault
     ></div>
     <div
       class="settings-panel"
