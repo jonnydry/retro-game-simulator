@@ -64,13 +64,21 @@
   onMount(() => {
     if (typeof document !== 'undefined') {
       lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      document.body.style.overflow = 'hidden';
     }
     tick().then(() => focusFirstElement(dialogPanelEl));
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+    };
   });
 
   function closeDialog() {
     onClose();
-    lastFocusedElement?.focus?.();
+    if (lastFocusedElement?.isConnected) {
+      lastFocusedElement.focus();
+    }
   }
 </script>
 
@@ -79,6 +87,8 @@
     class="dialog-backdrop"
     aria-hidden="true"
     on:click={closeDialog}
+    on:wheel|preventDefault
+    on:touchmove|preventDefault
   ></div>
   <div
     class="dialog-panel dialog-panel--rom"
