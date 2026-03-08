@@ -42,6 +42,10 @@
   function open() {
     if (typeof document !== 'undefined') {
       lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      document.body.style.overflow = 'hidden';
+    }
+    if (gamepadListenerCleanup) {
+      gamepadListenerCleanup();
     }
     const settings = getSettings();
     soundEnabled = settings.soundEnabled ?? false;
@@ -71,7 +75,12 @@
     if (gamepadListenerCleanup) {
       gamepadListenerCleanup();
     }
-    lastFocusedElement?.focus?.();
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
+    if (lastFocusedElement?.isConnected) {
+      lastFocusedElement.focus();
+    }
   }
 
   async function loadWatchedFolders() {
@@ -203,6 +212,8 @@
       class="settings-backdrop"
       aria-hidden="true"
       on:click={close}
+      on:wheel|preventDefault
+      on:touchmove|preventDefault
     ></div>
     <div
       class="settings-panel"
