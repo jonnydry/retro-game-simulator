@@ -2785,7 +2785,9 @@
       position: relative;
       width: 90%;
       max-width: 460px;
-      max-height: 80vh;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
       background:
         radial-gradient(circle at top right, rgba(var(--accent-secondary-rgb), 0.1), transparent 32%),
         linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%),
@@ -2797,6 +2799,7 @@
     }
 
     .settings-header {
+      flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -2843,10 +2846,33 @@
     .settings-content {
       padding: 20px;
       overflow-y: auto;
-      max-height: calc(80vh - 60px);
+      overflow-x: hidden;
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.35) rgba(255, 255, 255, 0.06);
+    }
+
+    .settings-content::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .settings-content::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 5px;
+    }
+
+    .settings-content::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 5px;
+    }
+
+    .settings-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
     }
 
     .settings-section {
@@ -2864,6 +2890,7 @@
     }
 
     .settings-section-card {
+      min-width: 0;
       padding: 14px;
       border-radius: 16px;
       background:
@@ -2972,9 +2999,12 @@
     }
 
     .gamepad-settings {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 10px;
+      padding: 12px;
       border-radius: 12px;
     }
 
@@ -3359,8 +3389,8 @@
 
     .settings-note {
       font-size: var(--text-xs);
-      color: var(--text-muted);
-      line-height: 1.4;
+      color: var(--text-secondary);
+      line-height: 1.5;
     }
     .settings-select {
       padding: 6px 10px;
