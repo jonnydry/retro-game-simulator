@@ -387,8 +387,6 @@
     aria-label="Close menu"
     on:click={closeDrawer}
     on:keydown={(e) => e.key === 'Enter' && closeDrawer()}
-    on:wheel|preventDefault
-    on:touchmove|preventDefault
   ></div>
 
   <button

@@ -3270,7 +3270,6 @@
 
     .settings-row-stack {
       align-items: stretch;
-      min-width: 0;
     }
 
     .settings-row-copy {
@@ -3279,7 +3278,6 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      min-width: 0;
     }
 
     .settings-row-value {
@@ -3296,7 +3294,6 @@
       flex-wrap: wrap;
       gap: 8px;
       width: 100%;
-      min-width: 0;
     }
 
     .settings-theme-option {
@@ -3312,7 +3309,6 @@
       color: var(--text-secondary);
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
-      flex-shrink: 0;
     }
 
     .settings-theme-option:hover {
@@ -3360,14 +3356,6 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-    }
-
-    .watch-folders-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 0;
-      margin-top: 10px;
     }
 
     .watch-folder-item {

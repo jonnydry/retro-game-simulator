@@ -25,9 +25,6 @@
 
   $: if ($dialogState.open && !wasOpen) {
     wasOpen = true;
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = 'hidden';
-    }
     lastFocusedElement =
       typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -35,12 +32,7 @@
     tick().then(() => focusFirstElement(dialogPanelEl));
   } else if (!$dialogState.open && wasOpen) {
     wasOpen = false;
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = '';
-    }
-    if (lastFocusedElement?.isConnected) {
-      lastFocusedElement.focus();
-    }
+    lastFocusedElement?.focus?.();
   }
 </script>
 
@@ -50,8 +42,6 @@
       class="dialog-backdrop"
       aria-hidden="true"
       on:click={() => handleResolve(false)}
-      on:wheel|preventDefault
-      on:touchmove|preventDefault
     ></div>
     <div
       class="dialog-panel"

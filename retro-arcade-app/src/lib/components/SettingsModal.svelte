@@ -42,10 +42,6 @@
   function open() {
     if (typeof document !== 'undefined') {
       lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      document.body.style.overflow = 'hidden';
-    }
-    if (gamepadListenerCleanup) {
-      gamepadListenerCleanup();
     }
     const settings = getSettings();
     soundEnabled = settings.soundEnabled ?? false;
@@ -75,12 +71,7 @@
     if (gamepadListenerCleanup) {
       gamepadListenerCleanup();
     }
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = '';
-    }
-    if (lastFocusedElement?.isConnected) {
-      lastFocusedElement.focus();
-    }
+    lastFocusedElement?.focus?.();
   }
 
   async function loadWatchedFolders() {
@@ -212,8 +203,6 @@
       class="settings-backdrop"
       aria-hidden="true"
       on:click={close}
-      on:wheel|preventDefault
-      on:touchmove|preventDefault
     ></div>
     <div
       class="settings-panel"
@@ -303,7 +292,7 @@
               <input type="checkbox" bind:checked={watchFoldersEnabled} on:change={() => updateSettings()} />
               <span class="toggle-slider"></span>
             </label>
-            <div class="watch-folders-list">
+            <div class="watch-folders-list settings-row-spaced">
               {#if watchedFoldersList.length === 0}
                 <p class="settings-description settings-empty">No folders added yet. Click "Add Folder" to select a directory.</p>
               {:else}
