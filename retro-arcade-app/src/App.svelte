@@ -59,6 +59,7 @@
   let pendingRomPick = { system: '', mode: 'import' };
   let storageReady = false;
   let romAccept = '';
+  let activeSystemFilter = '';
   $: romAccept = [...new Set(Object.values(getEnabledSystemExtensions($enabledSystems)).flat())].join(',');
 
   function showView(view) {
@@ -369,7 +370,7 @@
   }
 </script>
 
-<div class="app-container dither-bg" class:banner-visible={$desktopBannerVisible} style="zoom: {$uiScale}">
+<div class="app-container dither-bg" class:banner-visible={$desktopBannerVisible} style="zoom: {$uiScale}; --ui-zoom: {$uiScale}">
   <DesktopBanner />
   {#if storageReady}
   <Sidebar
@@ -378,6 +379,7 @@
     onOpenSettings={handleOpenSettings}
     onShowLibrary={handleReturnToLibrary}
     onCloseDrawer={closeDrawer}
+    onSystemFilter={(sys) => { activeSystemFilter = sys; }}
   />
   <div
     class="sidebar-drawer-backdrop"
@@ -406,13 +408,21 @@
           <img src="/logo-icon.png" alt="" class="browse-brand-icon" aria-hidden="true" />
           <span class="logo-emu">Emu</span><span>Phoria</span>
         </div>
-        <ThemeTintSwitcher />
+        <div class="browse-actions">
+          <button class="btn-import-rom" on:click={() => handleOpenRomDialog('')}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            Import ROM
+          </button>
+        </div>
       </div>
     {/if}
     {#if $currentView === 'emulator'}
       <EmulatorView
         onLoadRom={handleLoadRom}
         onOpenRomDialog={handleOpenRomDialog}
+        systemFilter={activeSystemFilter}
       />
     {:else if $currentView === 'play'}
       <PlayView showView={showView} />

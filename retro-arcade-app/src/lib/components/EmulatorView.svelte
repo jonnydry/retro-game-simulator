@@ -9,14 +9,15 @@
 
   export let onOpenRomDialog = (system) => {};
   export let onLoadRom = (id) => {};
+  export let systemFilter = ''; // '' = all systems
 
   function formatTimeAgo(ts) {
-    if (!ts) return 'Ready to play';
+    if (!ts) return 'never played';
     const seconds = Math.floor((Date.now() - ts) / 1000);
-    if (seconds < 60) return 'Updated just now';
-    if (seconds < 3600) return `Updated ${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `Updated ${Math.floor(seconds / 3600)}h ago`;
-    return `Updated ${Math.floor(seconds / 86400)}d ago`;
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
   }
 
   async function handleRemoveRom(rom, e) {
@@ -24,17 +25,15 @@
     await confirmAndRemoveRom(rom);
   }
 
-  $: countBySystem = {};
-  $: {
+  $: countBySystem = (() => {
     const lib = $romLibrary;
     const counts = {};
     $enabledSystems.forEach(s => { counts[s] = 0; });
     lib.forEach(r => { counts[r.system] = (counts[r.system] || 0) + 1; });
-    countBySystem = counts;
-  }
+    return counts;
+  })();
 
-  $: libraryBySystem = {};
-  $: {
+  $: libraryBySystem = (() => {
     const lib = $romLibrary;
     const by = {};
     $enabledSystems.forEach(s => { by[s] = []; });
@@ -49,13 +48,22 @@
         });
       }
     });
-    $enabledSystems.forEach(s => { by[s] = by[s].sort((a,b) => (b.lastPlayed||0) - (a.lastPlayed||0)); });
-    libraryBySystem = by;
-  }
+    $enabledSystems.forEach(s => {
+      by[s] = by[s].sort((a,b) => (b.lastPlayed||0) - (a.lastPlayed||0));
+    });
+    return by;
+  })();
+
+  // Systems to show based on filter
+  $: visibleSystems = systemFilter
+    ? $enabledSystems.filter(s => s === systemFilter)
+    : $enabledSystems;
 </script>
 
 <div class="main-view emulator-view">
   <div class="emulator-scroll">
+
+    <!-- System roulette chips -->
     <div class="systems-roulette-wrapper">
       <nav class="systems-roulette-bar" aria-label="Game systems">
         <div class="systems-roulette-track">
@@ -74,14 +82,24 @@
         </div>
       </nav>
     </div>
-    <div class="section-title emulator-library-title">My Library</div>
+
+    <!-- Library title -->
+    <div class="section-title emulator-library-title">
+      {#if systemFilter}
+        {systemDisplayNames[systemFilter] || systemFilter.toUpperCase()} — {countBySystem[systemFilter] || 0} ROM{(countBySystem[systemFilter] || 0) !== 1 ? 's' : ''}
+      {:else}
+        My Library
+      {/if}
+    </div>
+
+    <!-- Library by system -->
     <div class="library-by-system">
       {#if $romLibrary.length === 0}
         <div class="library-empty-state">
           <p class="library-empty-hint">No ROMs yet. Choose a system above to import a game.</p>
         </div>
       {:else}
-        {#each $enabledSystems as sys}
+        {#each visibleSystems as sys}
           {#if (libraryBySystem[sys] || []).length > 0}
             <details class="library-system-section" open>
               <summary class="library-system-header">
@@ -124,7 +142,7 @@
                           {#if rom.fallbackIcon}
                             {@html rom.fallbackIcon}
                           {:else}
-                            <span class="library-rom-thumbnail-placeholder">{rom.system.substring(0,2).toUpperCase()}</span>
+                            <span class="library-rom-thumbnail-placeholder">{rom.system.substring(0,3).toUpperCase()}</span>
                           {/if}
                         </div>
                       </div>
@@ -133,7 +151,7 @@
                         <div class="library-rom-meta">
                           <span class="library-pill">{rom.activityText}</span>
                           {#if rom.hasSaveState}
-                            <span class="library-pill library-pill-save" title="Has save state" aria-label="Has save state">Save state</span>
+                            <span class="library-pill library-pill-save">Save state</span>
                           {/if}
                         </div>
                       </div>
@@ -146,11 +164,8 @@
                       title={`Remove ${rom.name} from library`}
                       on:click|stopPropagation={(e) => handleRemoveRom(rom, e)}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M3 6h18"/>
-                        <path d="M8 6V4h8v2"/>
-                        <path d="M19 6l-1 14H6L5 6"/>
-                        <path d="M10 11v6M14 11v6"/>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>
                       </svg>
                     </button>
                   </div>
@@ -159,7 +174,15 @@
             </details>
           {/if}
         {/each}
+
+        <!-- Empty state for filter -->
+        {#if systemFilter && (libraryBySystem[systemFilter] || []).length === 0}
+          <div class="library-empty-state">
+            <p class="library-empty-hint">No {systemDisplayNames[systemFilter] || systemFilter.toUpperCase()} ROMs yet. Use the chip above to import.</p>
+          </div>
+        {/if}
       {/if}
     </div>
+
   </div>
 </div>

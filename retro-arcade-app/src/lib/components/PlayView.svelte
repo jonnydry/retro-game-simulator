@@ -461,208 +461,265 @@
       on:click={closeTheaterMode}
     ></button>
   {/if}
+
+  <!-- Topbar -->
   <div class="game-header">
     <div class="game-header-main">
+      <button type="button" class="back-btn" on:click={(e) => { blurInteractiveTarget(e); exitGame(); }} aria-label="Back to library">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 5l-7 7 7 7"/>
+        </svg>
+        Library
+      </button>
+      {#if currentRomSystem}
+        <span class="system-badge">{currentRomSystem.toUpperCase()}</span>
+      {/if}
       <h1 class="game-title">{gameTitle}</h1>
-      <div class="score-display">SCORE<span>{$score}</span></div>
     </div>
-    {#if romInfo}
-      <div class="game-header-status">
-        <span class="rom-info-hint">{romInfo}</span>
+    <div style="display: flex; align-items: center; gap: var(--space-md); flex-shrink: 0;">
+      <div class="score-display" aria-label="Score">
+        SCORE <span>{$score}</span>
       </div>
-    {/if}
-  </div>
-  <div class="game-container">
-    {#if $pendingRomLoadId}
       <button
         type="button"
-        class="rom-load-overlay"
-        on:click={(e) => {
-          blurInteractiveTarget(e);
-          startPendingRomLoad();
-        }}
-        aria-label="Click to load game"
+        class="header-icon-btn"
+        class:active={theaterMode}
+        on:click={(e) => { blurInteractiveTarget(e); toggleTheaterMode(); }}
+        aria-label="Toggle theater mode"
+        aria-pressed={theaterMode}
+        title="Theater mode"
       >
-        Click to load game
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
+        </svg>
       </button>
-    {/if}
-    <div class="game-frame" id="crtFrame" bind:this={crtFrameEl} data-rom-system={currentRomSystem || ($currentGame ? 'builtin' : null)}>
-      <canvas
-        bind:this={canvasEl}
-        id="gameCanvas"
-        width="640"
-        height="480"
-        aria-label="Game display"
-        style="display: {showEmulator ? 'none' : 'block'}"
-      ></canvas>
-      <div class="press-start" class:show={showPressStart && $currentGame && !showGameOver}>
-        <div class="press-start-text">PRESS START</div>
-        <div class="coin-slot">◄ INSERT COIN ►</div>
-      </div>
-      <div class="game-over" class:show={showGameOver}>
-        <h2>GAME OVER</h2>
-        <p>Final Score: <span>{finalScore}</span></p>
-        {#if newHighScore}
-          <div class="new-high-score">NEW HIGH SCORE!</div>
-        {/if}
-        <button class="restart-btn" on:click={(e) => {
-          blurInteractiveTarget(e);
-          restartGame();
-        }}>Play Again</button>
-      </div>
-      <div
-        class="emulator-container"
-        class:active={showEmulator}
-        bind:this={emulatorContainerEl}
-      >
-        <div id="emulator" bind:this={emulatorEl}></div>
-        {#if showEmulator && emulatorNeedsInteraction}
-          <button
-            type="button"
-            class="emulator-click-overlay"
-            on:click={(e) => {
-              blurInteractiveTarget(e);
-              handleEmulatorOverlayClick();
-            }}
-            aria-label="Click or press Enter to start the emulator"
-          >
-            Click to start
-          </button>
-        {/if}
-      </div>
     </div>
   </div>
-  <div class="controls-bar">
-    <button class="control-btn" on:click={(e) => {
-      blurInteractiveTarget(e);
-      togglePause();
-    }} aria-label="Start or pause game">
-      <span>{$isPaused ? '▶' : '⏸'}</span>
-      <span>{$isPaused ? 'START' : 'PAUSE'}</span>
-    </button>
-    <button
-      class="control-btn"
-      class:active={soundOn}
-      on:click={(e) => {
-        blurInteractiveTarget(e);
-        toggleSound();
-      }}
-      aria-label="Toggle sound effects"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
-      </svg>
-      <span>Sound {soundOn ? 'On' : 'Off'}</span>
-    </button>
-    {#if showEmulator}
-      <button
-        class="control-btn"
-        on:click={(e) => {
-          blurInteractiveTarget(e);
-          handleEmulatorReset();
-        }}
-        aria-label="Reset emulator game"
-        disabled={!emulatorCapabilities.canReset}
-      >
-        Reset
-      </button>
-      <button
-        class="control-btn"
-        on:click={(e) => {
-          blurInteractiveTarget(e);
-          handleEmulatorSaveState();
-        }}
-        aria-label="Save state slot one"
-        disabled={!emulatorCapabilities.canSaveState}
-      >
-        Save
-      </button>
-      <button
-        class="control-btn"
-        on:click={(e) => {
-          blurInteractiveTarget(e);
-          handleEmulatorLoadState();
-        }}
-        aria-label="Load state slot one"
-        disabled={!emulatorCapabilities.canLoadState}
-      >
-        Load
-      </button>
-      {#if lastSavedText}
-        <span class="save-state-hint" title="Last save state">Saved {lastSavedText}</span>
-      {/if}
-      <button
-        class="control-btn"
-        on:click={(e) => {
-          blurInteractiveTarget(e);
-          handleEmulatorMenu();
-        }}
-        aria-label="Open emulator controls menu"
-        disabled={!emulatorCapabilities.canOpenMenu}
-      >
-        Menu
-      </button>
-    {/if}
-    <button
-      class="control-btn"
-      class:active={theaterMode}
-      on:click={(e) => {
-        blurInteractiveTarget(e);
-        toggleTheaterMode();
-      }}
-      aria-label="Toggle theater mode"
-      aria-pressed={theaterMode}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path
-          d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
-        />
-      </svg>
-      Theater {theaterMode ? 'On' : 'Off'}
-    </button>
-    <button class="control-btn" on:click={(e) => {
-      blurInteractiveTarget(e);
-      exitGame();
-    }} aria-label="Exit to menu">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
-      </svg>
-      Exit
-    </button>
-    <select
-      class="resolution-select"
-      aria-label="Select resolution scale"
-      bind:value={resolution}
-      on:change={() => {
-        const s = getSettings();
-        s.resolution = resolution;
-        saveSettings(s);
-        applyResolution();
-      }}
-    >
-      <option value="auto">Auto Fit</option>
-      <option value="1x">1x (Native)</option>
-      <option value="2x">2x</option>
-      <option value="3x">3x</option>
-      <option value="4x">4x</option>
-    </select>
-    <span class="keyboard-hint">{keyboardHint}</span>
-  </div>
-  {#if showControlsGuide && $currentGame}
-    <div class="controls-guide show">
-      <h4>Controls</h4>
-      <div class="controls-grid">
-        {#each (CONTROL_GUIDES[$currentGame] || []) as c}
-          <div class="control-item">
-            {#each c.keys as k}
-              <span class="key">{k}</span>
-            {/each}
-            <span>{c.action}</span>
-          </div>
-        {/each}
-      </div>
+
+  <!-- Status row (rom info) -->
+  {#if romInfo}
+    <div class="game-header-status" style="padding: 0 var(--space-xl) var(--space-sm); border-bottom: 1px solid var(--border-subtle);">
+      <span class="rom-info-hint">{romInfo}</span>
     </div>
   {/if}
+
+  <!-- Main body: canvas + right panel -->
+  <div class="game-body">
+
+    <!-- Canvas area -->
+    <div class="game-container">
+      {#if $pendingRomLoadId}
+        <button
+          type="button"
+          class="rom-load-overlay"
+          on:click={(e) => {
+            blurInteractiveTarget(e);
+            startPendingRomLoad();
+          }}
+          aria-label="Click to load game"
+        >
+          Click to load game
+        </button>
+      {/if}
+      <div class="game-frame" id="crtFrame" bind:this={crtFrameEl} data-rom-system={currentRomSystem || ($currentGame ? 'builtin' : null)}>
+        <canvas
+          bind:this={canvasEl}
+          id="gameCanvas"
+          width="640"
+          height="480"
+          aria-label="Game display"
+          style="display: {showEmulator ? 'none' : 'block'}"
+        ></canvas>
+        <div class="press-start" class:show={showPressStart && $currentGame && !showGameOver}>
+          <div class="press-start-text">PRESS START</div>
+          <div class="coin-slot">◄ INSERT COIN ►</div>
+        </div>
+        <div class="game-over" class:show={showGameOver}>
+          <h2>GAME OVER</h2>
+          <p>Final Score: <span>{finalScore}</span></p>
+          {#if newHighScore}
+            <div class="new-high-score">NEW HIGH SCORE!</div>
+          {/if}
+          <button class="restart-btn" on:click={(e) => {
+            blurInteractiveTarget(e);
+            restartGame();
+          }}>Play Again</button>
+        </div>
+        <div
+          class="emulator-container"
+          class:active={showEmulator}
+          bind:this={emulatorContainerEl}
+        >
+          <div id="emulator" bind:this={emulatorEl}></div>
+          {#if showEmulator && emulatorNeedsInteraction}
+            <button
+              type="button"
+              class="emulator-click-overlay"
+              on:click={(e) => {
+                blurInteractiveTarget(e);
+                handleEmulatorOverlayClick();
+              }}
+              aria-label="Click or press Enter to start the emulator"
+            >
+              Click to start
+            </button>
+          {/if}
+        </div>
+      </div>
+    </div>
+
+    <!-- Right controls panel -->
+    <div class="controls-panel">
+
+      <!-- CONTROLS section -->
+      <div class="controls-panel-section">
+        <div class="controls-panel-label">Controls</div>
+        <div class="controls-btn-row">
+          <button class="control-btn" on:click={(e) => {
+            blurInteractiveTarget(e);
+            togglePause();
+          }} aria-label="Start or pause game">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              {#if $isPaused}
+                <path d="M8 5v14l11-7z"/>
+              {:else}
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+              {/if}
+            </svg>
+            {$isPaused ? 'Resume' : 'Pause'}
+          </button>
+          {#if showEmulator}
+            <button
+              class="control-btn"
+              on:click={(e) => { blurInteractiveTarget(e); handleEmulatorReset(); }}
+              aria-label="Reset emulator game"
+              disabled={!emulatorCapabilities.canReset}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              Reset
+            </button>
+          {/if}
+        </div>
+        {#if showEmulator}
+          <div class="controls-btn-row">
+            <button
+              class="control-btn"
+              on:click={(e) => { blurInteractiveTarget(e); handleEmulatorSaveState(); }}
+              aria-label="Save state slot one"
+              disabled={!emulatorCapabilities.canSaveState}
+            >
+              Save State
+              <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: auto;">F5</span>
+            </button>
+          </div>
+          <div class="controls-btn-row">
+            <button
+              class="control-btn"
+              on:click={(e) => { blurInteractiveTarget(e); handleEmulatorLoadState(); }}
+              aria-label="Load state slot one"
+              disabled={!emulatorCapabilities.canLoadState}
+            >
+              Load State
+              <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: auto;">F7</span>
+            </button>
+          </div>
+          {#if lastSavedText}
+            <span class="save-state-hint">Saved {lastSavedText}</span>
+          {/if}
+        {/if}
+      </div>
+
+      <!-- DISPLAY section -->
+      <div class="controls-panel-section">
+        <div class="controls-panel-label">Display</div>
+        <div style="margin-bottom: var(--space-sm);">
+          <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 6px; font-family: var(--font-sans);">Resolution</div>
+          <select
+            class="resolution-select"
+            aria-label="Select resolution scale"
+            bind:value={resolution}
+            on:change={() => {
+              const s = getSettings();
+              s.resolution = resolution;
+              saveSettings(s);
+              applyResolution();
+            }}
+          >
+            <option value="auto">Auto Fit</option>
+            <option value="1x">1× Native</option>
+            <option value="2x">2×</option>
+            <option value="3x">3×</option>
+            <option value="4x">4×</option>
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-xs) 0;">
+          <span style="font-size: var(--text-xs); color: var(--text-secondary);">Sound</span>
+          <button
+            type="button"
+            class="control-btn control-btn--small"
+            class:active={soundOn}
+            on:click={(e) => { blurInteractiveTarget(e); toggleSound(); }}
+            aria-label="Toggle sound"
+          >
+            {soundOn ? 'On' : 'Off'}
+          </button>
+        </div>
+      </div>
+
+      <!-- KEYBOARD section (builtin games) -->
+      {#if $currentGame && !showEmulator}
+        <div class="controls-panel-section">
+          <div class="controls-panel-label">Keyboard</div>
+          {#each (CONTROL_GUIDES[$currentGame] || []) as c}
+            <div class="controls-kbd-row">
+              <span class="controls-kbd-action">{c.action}</span>
+              <div class="controls-kbd-keys">
+                {#each c.keys as k}
+                  <span class="key">{k}</span>
+                {/each}
+              </div>
+            </div>
+          {/each}
+          <span class="keyboard-hint" style="margin-top: var(--space-sm); display: block;">{keyboardHint}</span>
+        </div>
+      {/if}
+
+      <!-- Emulator menu button -->
+      {#if showEmulator && emulatorCapabilities.canOpenMenu}
+        <div class="controls-panel-section" style="padding-top: var(--space-sm); padding-bottom: var(--space-sm);">
+          <button
+            class="control-btn control-btn--full"
+            on:click={(e) => { blurInteractiveTarget(e); handleEmulatorMenu(); }}
+            aria-label="Open emulator menu"
+          >
+            Emulator Menu
+          </button>
+        </div>
+      {/if}
+
+      <!-- Spacer -->
+      <div style="flex: 1;"></div>
+
+      <!-- Exit to Library -->
+      <button
+        type="button"
+        class="controls-exit-btn"
+        on:click={(e) => { blurInteractiveTarget(e); exitGame(); }}
+        aria-label="Exit to library"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>
+        Exit to Library
+      </button>
+    </div>
+
+  </div><!-- end game-body -->
+
+  <!-- Touch controls (mobile) -->
   {#if showTouchControls && $currentGame && !showGameOver}
     <div class="touch-controls visible" class:pong={$currentGame === 'pong'} class:snake={$currentGame === 'snake'} class:breakout={$currentGame === 'breakout'} role="group" aria-label="Touch controls">
       {#if $currentGame === 'pong'}
@@ -691,4 +748,5 @@
       {/if}
     </div>
   {/if}
+
 </div>

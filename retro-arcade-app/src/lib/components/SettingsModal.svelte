@@ -249,35 +249,38 @@
             <input type="checkbox" bind:checked={showHints} on:change={updateSettings} />
             <span class="toggle-slider"></span>
           </label>
-          <label class="settings-row settings-row-spaced">
-            <span>UI Scale</span>
-            <select
-              class="settings-select"
-              value={$uiScale}
-              on:change={(e) => {
-                const v = parseFloat(e.currentTarget.value);
-                uiScale.set(v);
-                updateSettings({ uiScale: v });
-              }}
-            >
+          <div class="settings-row settings-row-spaced" style="padding: var(--space-sm) 0;">
+            <span style="font-size: var(--text-base); font-weight: 500; color: var(--text-primary);">UI Scale</span>
+            <div class="settings-scale-buttons" role="group" aria-label="UI Scale">
               {#each uiScale.options as opt}
-                <option value={opt.value}>{opt.label}</option>
+                <button
+                  type="button"
+                  class="settings-scale-btn"
+                  class:active={$uiScale === opt.value}
+                  aria-pressed={$uiScale === opt.value}
+                  on:click={() => {
+                    uiScale.set(opt.value);
+                    updateSettings({ uiScale: opt.value });
+                  }}
+                >
+                  {opt.label}
+                </button>
               {/each}
-            </select>
-          </label>
-          <div class="settings-row settings-row-spaced settings-row-stack">
+            </div>
+          </div>
+          <div class="settings-row settings-row-spaced settings-row-stack" style="padding-top: var(--space-sm);">
             <div class="settings-row-copy">
-              <span>Tint Theme</span>
+              <span style="font-size: var(--text-base); font-weight: 500; color: var(--text-primary);">Accent Color</span>
               <span class="settings-row-value">{activeThemeOption.label}</span>
             </div>
-            <div class="settings-theme-strip" role="group" aria-label="Tint themes">
+            <div class="settings-theme-strip" role="group" aria-label="Accent color">
               {#each THEME_OPTIONS as option}
                 <button
                   type="button"
                   class="settings-theme-option"
                   class:active={option.id === $currentTheme}
                   aria-pressed={option.id === $currentTheme}
-                  aria-label={`Use ${option.label} tint theme`}
+                  aria-label={`Use ${option.label} accent color`}
                   title={option.label}
                   on:click={() => selectTheme(option.id)}
                 >
@@ -378,7 +381,11 @@
         </div>
         <div class="settings-section settings-section-card">
           <h3>About</h3>
-          <p class="settings-description settings-description-secondary">EmuPhoria v1.0<br />Classic games simulator</p>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: var(--text-base); color: var(--text-primary); font-weight: 500;">EmuPhoria</span>
+            <span style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--accent-primary); letter-spacing: 0.08em;">v1.0.0</span>
+          </div>
+          <p class="settings-description settings-description-secondary" style="margin-top: 4px;">Browser-based retro arcade · EmulatorJS</p>
         </div>
       </div>
     </div>
