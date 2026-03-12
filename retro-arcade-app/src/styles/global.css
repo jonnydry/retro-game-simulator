@@ -479,7 +479,7 @@ a:hover { opacity: 0.8; }
 /* Logo wrapper - positions caret inline with text block */
 .logo-wrapper {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
 }
 
@@ -489,6 +489,7 @@ a:hover { opacity: 0.8; }
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+  margin-top: 2px;
 }
 
 /* Logo */
