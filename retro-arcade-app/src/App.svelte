@@ -265,42 +265,53 @@
   // Boot sequence with more phases and storytelling - ~3.5 seconds
   async function runBootSequence() {
     const phases = [
-      { phase: 0, duration: 400 },    // 0-400ms: Initial power on
-      { phase: 1, duration: 600 },    // 400-1000ms: Memory check
-      { phase: 2, duration: 800 },    // 1000-1800ms: Loading cores
-      { phase: 3, duration: 600 },    // 1800-2400ms: Verifying systems
-      { phase: 4, duration: 400 },    // 2400-2800ms: Ready state
-      { phase: 5, duration: 700 },    // 2800-3500ms: Exit transition
+      { phase: 0, duration: 400, targetProgress: 5 },      // 0-400ms: Initial power on
+      { phase: 1, duration: 600, targetProgress: 30 },     // 400-1000ms: Memory check
+      { phase: 2, duration: 800, targetProgress: 75 },     // 1000-1800ms: Loading cores
+      { phase: 3, duration: 600, targetProgress: 95 },     // 1800-2400ms: Verifying systems
+      { phase: 4, duration: 400, targetProgress: 100 },    // 2400-2800ms: Ready state
+      { phase: 5, duration: 700, targetProgress: 100 },    // 2800-3500ms: Exit transition
     ];
     
-    for (const { phase, duration } of phases) {
+    let lastProgress = 0;
+    
+    for (const { phase, duration, targetProgress: target } of phases) {
       if (skipRequested) break;
       bootPhase = phase;
       
-      // Update progress smoothly during phases 1-3
+      // Smooth progress animation during active phases
       if (phase >= 1 && phase <= 3) {
-        const steps = 20;
+        const steps = 30;
         const stepDuration = duration / steps;
-        const progressPerStep = (100 / 3) / steps;
+        const progressRange = target - lastProgress;
         
         for (let i = 0; i < steps; i++) {
           if (skipRequested) break;
-          progress = Math.min(95, progress + progressPerStep);
+          const easedProgress = easeOutCubic(i / steps);
+          progress = Math.min(99, lastProgress + (progressRange * easedProgress));
           await new Promise(r => setTimeout(r, stepDuration));
         }
+        lastProgress = target;
       } else {
+        progress = target;
         await new Promise(r => setTimeout(r, duration));
+        lastProgress = target;
       }
     }
     
     if (!skipRequested) {
       progress = 100;
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 300));
     }
     
     splashExiting = true;
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise(r => setTimeout(r, 500));
     showSplash = false;
+  }
+  
+  // Easing function for smoother progress
+  function easeOutCubic(x) {
+    return 1 - Math.pow(1 - x, 3);
   }
 
   onMount(async () => {
@@ -502,44 +513,51 @@
     <div class="loading-splash-vignette"></div>
     <div class="loading-splash-noise"></div>
     
-    <!-- Matrix rain effect -->
+    <!-- Matrix rain effect - simplified for performance -->
     <div class="matrix-rain" class:active={bootPhase >= 1 && bootPhase <= 3}>
-      {#each Array(20) as _, i}
+      {#each Array(12) as _, i}
         <div class="matrix-column" style="
-          --delay: {Math.random() * 2}s;
-          --speed: {1 + Math.random() * 2}s;
-          --left: {i * 5}%; 
+          --delay: {(i * 0.3) % 2}s;
+          --speed: {1.5 + (i % 3) * 0.5}s;
+          --left: {i * 8}%; 
         ">
-          {#each Array(15) as __, j}
-            <span class="matrix-char" style="--char-delay: {j * 0.1}s">{['0','1','A','B','C','D','E','F','╱','╲','▓','▒','░'][Math.floor(Math.random() * 13)]}</span>
+          {#each Array(10) as __, j}
+            <span class="matrix-char" style="--char-delay: {j * 0.08}s">{String.fromCharCode(48 + (i + j) % 10)}</span>
           {/each}
         </div>
       {/each}
     </div>
     
-    <!-- Particle effects -->
+    <!-- Particle effects - reduced count -->
     <div class="particles-container">
-      {#each Array(15) as _, i}
+      {#each Array(8) as _, i}
         <div class="particle" style="
-          --delay: {Math.random() * 3}s; 
-          --duration: {2 + Math.random() * 3}s; 
-          --x: {Math.random() * 100}%; 
-          --y: {Math.random() * 100}%;
-          --size: {3 + Math.random() * 5}px;
+          --delay: {(i * 0.5)}s; 
+          --duration: {2.5 + (i % 3)}s; 
+          --x: {20 + (i * 10)}%; 
+          --y: {60 + (i * 5)}%;
+          --size: {4 + (i % 3)}px;
         "></div>
       {/each}
     </div>
     
-    <!-- Version badge -->
+    <!-- Version badge with build info -->
     <div class="version-badge" class:visible={bootPhase >= 0}>
       <span class="version-label">EMU</span>
-      <span class="version-number">v2.0</span>
+      <span class="version-number">v2.0.4</span>
+      <span class="version-build">BUILD 8921</span>
+    </div>
+    
+    <!-- Easter egg: Hidden konami code hint -->
+    <div class="konami-hint" class:visible={bootPhase >= 2}>
+      ↑↑↓↓←→←→BA
     </div>
     
     <div class="loading-splash-content">
       <div class="loading-splash-logo-container" class:pulse={bootPhase >= 4}>
         <div class="logo-glow-ring"></div>
         <div class="logo-glow-ring ring-2"></div>
+        <div class="logo-glow-ring ring-3"></div>
         <img src="/logo.png" alt="EmuPhoria" class="loading-splash-logo-full" />
         <div class="loading-splash-glitch"></div>
         {#if bootPhase >= 4}
@@ -552,48 +570,69 @@
       
       <div class="loading-splash-terminal">
         <div class="terminal-header">
-          <span class="terminal-dot red"></span>
-          <span class="terminal-dot yellow"></span>
-          <span class="terminal-dot green"></span>
+          <div class="terminal-controls">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+          </div>
           <span class="terminal-title">emu_boot_sequence</span>
+          <span class="terminal-timestamp">{new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         </div>
         <div class="terminal-body">
           <!-- Phase 0: Power on -->
           <div class="terminal-line" class:visible={bootPhase >= 0}>
-            <span class="terminal-prompt">➜</span>
+            <span class="terminal-prompt">
+              {#if bootPhase === 0}
+                <span class="cursor-blink">_</span>
+              {:else}
+                ➜
+              {/if}
+            </span>
             <span class="terminal-command">power_on</span>
             <span class="terminal-status-badge" class:ok={bootPhase >= 1}>OK</span>
           </div>
           
           <!-- Phase 1: Memory check -->
           <div class="terminal-line" class:visible={bootPhase >= 1}>
-            <span class="terminal-prompt">➜</span>
+            <span class="terminal-prompt">
+              {#if bootPhase === 1}
+                <span class="cursor-blink">_</span>
+              {:else}
+                ➜
+              {/if}
+            </span>
             <span class="terminal-command">check_memory</span>
           </div>
           {#if bootPhase >= 1}
             <div class="terminal-line indent memory-check" class:visible={bootPhase >= 1}>
               <span class="memory-text">{bootPhase >= 2 ? '64MB OK' : 'checking...'}</span>
               <span class="memory-bar">
-                <span class="memory-fill" style="width: {bootPhase >= 2 ? 100 : progress * 0.6}%"></span>
+                <span class="memory-fill" style="width: {Math.min(100, bootPhase >= 2 ? 100 : (progress / 30) * 100)}%"></span>
               </span>
             </div>
           {/if}
           
           <!-- Phase 2: Load cores -->
           <div class="terminal-line" class:visible={bootPhase >= 2}>
-            <span class="terminal-prompt">➜</span>
+            <span class="terminal-prompt">
+              {#if bootPhase === 2}
+                <span class="cursor-blink">_</span>
+              {:else}
+                ➜
+              {/if}
+            </span>
             <span class="terminal-command">load_cores</span>
-            <span class="terminal-args">--all</span>
+            <span class="terminal-args">--all --async</span>
           </div>
           {#if bootPhase >= 2}
             <div class="terminal-line indent">
               <span class="subsystem-list">
                 {#if bootPhase === 2}
-                  <span class="subsystem" class:active={progress < 40}>NES</span>
-                  <span class="subsystem" class:active={progress >= 40 && progress < 55}>SNES</span>
-                  <span class="subsystem" class:active={progress >= 55 && progress < 70}>GBA</span>
-                  <span class="subsystem" class:active={progress >= 70 && progress < 85}>PSX</span>
-                  <span class="subsystem" class:active={progress >= 85}>N64</span>
+                  <span class="subsystem" class:active={progress < 35}>NES</span>
+                  <span class="subsystem" class:active={progress >= 35 && progress < 50}>SNES</span>
+                  <span class="subsystem" class:active={progress >= 50 && progress < 65}>GBA</span>
+                  <span class="subsystem" class:active={progress >= 65 && progress < 80}>PSX</span>
+                  <span class="subsystem" class:active={progress >= 80}>N64</span>
                 {:else}
                   <span class="subsystem loaded">NES ✓</span>
                   <span class="subsystem loaded">SNES ✓</span>
@@ -607,7 +646,13 @@
           
           <!-- Phase 3: Verify -->
           <div class="terminal-line" class:visible={bootPhase >= 3}>
-            <span class="terminal-prompt">➜</span>
+            <span class="terminal-prompt">
+              {#if bootPhase === 3}
+                <span class="cursor-blink">_</span>
+              {:else}
+                ➜
+              {/if}
+            </span>
             <span class="terminal-command">verify_systems</span>
             <span class="terminal-status-badge" class:ok={bootPhase >= 4}>OK</span>
           </div>
@@ -615,6 +660,9 @@
             <div class="terminal-line indent verification" class:visible={bootPhase >= 3}>
               <span class="verify-item" class:checked={bootPhase >= 4}>✓</span>
               <span class="verify-text">all systems operational</span>
+              {#if bootPhase >= 4}
+                <span class="verify-time">({(2.8).toFixed(2)}s)</span>
+              {/if}
             </div>
           {/if}
         </div>
@@ -625,7 +673,7 @@
             <span class="progress-percent">{Math.round(progress)}%</span>
             <span class="status-text" class:ready={bootPhase >= 4}>
               {#if bootPhase === 0}
-                POWER ON
+                INITIALIZING
               {:else if bootPhase === 1}
                 MEMORY CHECK
               {:else if bootPhase === 2}
@@ -633,7 +681,7 @@
               {:else if bootPhase === 3}
                 VERIFYING
               {:else}
-                COMPLETE
+                READY
               {/if}
             </span>
           </div>
@@ -645,20 +693,25 @@
       </div>
       
       <button class="skip-button" on:click={skipSplash} class:visible={bootPhase >= 2}>
-        press any key to skip
+        <span class="skip-icon">⌫</span>
+        <span>skip</span>
       </button>
     </div>
     
     <div class="loading-splash-grid"></div>
     
     <!-- Decorative corner elements -->
-    <div class="corner corner-tl">◤</div>
-    <div class="corner corner-tr">◥</div>
-    <div class="corner corner-bl">◣</div>
-    <div class="corner corner-br">◢</div>
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
     
     <!-- Frame border -->
     <div class="frame-border"></div>
+    
+    <!-- Tech decoration lines -->
+    <div class="tech-line tech-line-left"></div>
+    <div class="tech-line tech-line-right"></div>
   </div>
   {/if}
 </div>
