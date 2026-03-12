@@ -256,7 +256,10 @@
     document.addEventListener('visibilitychange', visibilityChangeHandler);
     window.addEventListener('pagehide', pageHideHandler);
 
-    await initRomStorage();
+    // Minimum splash screen display time (1.5 seconds)
+    const minSplashTime = new Promise(resolve => setTimeout(resolve, 1500));
+    
+    await Promise.all([initRomStorage(), minSplashTime]);
     romLibrary.refresh();
     storageReady = true;
     const settings = getSettings();
