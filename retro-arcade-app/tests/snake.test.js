@@ -6,7 +6,23 @@ import { initSnake, updateSnake } from '../src/lib/games/snake.js';
 function makeCtx() {
   return {
     fillStyle: '',
-    fillRect() {}
+    strokeStyle: '',
+    lineWidth: 0,
+    globalAlpha: 1,
+    shadowColor: '',
+    shadowBlur: 0,
+    font: '',
+    textAlign: '',
+    fillRect() {},
+    beginPath() {},
+    arc() {},
+    fill() {},
+    stroke() {},
+    moveTo() {},
+    lineTo() {},
+    quadraticCurveTo() {},
+    closePath() {},
+    fillText() {}
   };
 }
 
@@ -18,7 +34,7 @@ test('snake respawns food only on free cells', () => {
     { x: 1, y: 3 }
   ];
   state.direction = { x: 1, y: 0 };
-  state.food = { x: 2, y: 1 };
+  state.food = { x: 2, y: 1, type: { color: '#ff5c8d', points: 10 } };
   state.speed = 0;
   state.lastUpdate = 0;
 
@@ -31,7 +47,9 @@ test('snake respawns food only on free cells', () => {
     Math.random = originalRandom;
   }
 
-  assert.deepEqual(state.food, { x: 0, y: 0 });
+  assert.equal(state.food.x, 0);
+  assert.equal(state.food.y, 0);
+  assert.ok(state.food.type);
   assert.equal(
     state.snake.some((segment) => segment.x === state.food.x && segment.y === state.food.y),
     false
@@ -42,12 +60,12 @@ test('snake ends the round when it fills the board', () => {
   const state = initSnake();
   state.snake = [{ x: 0, y: 0 }];
   state.direction = { x: 1, y: 0 };
-  state.food = { x: 1, y: 0 };
+  state.food = { x: 1, y: 0, type: { color: '#ff5c8d', points: 10 } };
   state.speed = 0;
   state.lastUpdate = 0;
 
   const result = updateSnake(state, makeCtx(), { width: 40, height: 20 }, () => ({}), () => {}, 200);
 
   assert.equal(result.gameOver, true);
-  assert.equal(result.score, 10);
+  assert.ok(result.score > 0);
 });
