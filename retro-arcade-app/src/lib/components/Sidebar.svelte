@@ -126,15 +126,20 @@
   <!-- Header: Logo + toggle -->
   <div class="sidebar-header">
     <div>
-      <div class="logo" class:compact={$sidebarCollapsed}>
-        {#if $sidebarCollapsed}
+      {#if $sidebarCollapsed}
+        <div class="logo compact">
           <span class="logo-emu">E</span>
-        {:else}
-          <span class="logo-caret">&gt;</span><span class="logo-emu">Emu</span><span>Phoria</span>
-        {/if}
-      </div>
-      {#if !$sidebarCollapsed}
-        <p class="sidebar-tagline">ARCADE VAULT</p>
+        </div>
+      {:else}
+        <div class="logo-wrapper">
+          <span class="logo-caret">&gt;</span>
+          <div class="logo-text-block">
+            <div class="logo">
+              <span class="logo-emu">Emu</span><span>Phoria</span>
+            </div>
+            <p class="sidebar-tagline">ARCADE VAULT</p>
+          </div>
+        </div>
       {/if}
     </div>
     <button class="sidebar-toggle" on:click={toggleSidebar}
