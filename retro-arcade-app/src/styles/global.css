@@ -326,7 +326,7 @@ a:hover { opacity: 0.8; }
   z-index: 1;
 }
 .loading-splash-logo {
-  width: 56px; height: 56px;
+  width: 72px; height: 72px;
   object-fit: contain;
   opacity: 0.9;
 }
@@ -905,7 +905,7 @@ a:hover { opacity: 0.8; }
   color: var(--text-primary);
 }
 .browse-brand-icon {
-  width: 32px; height: 32px;
+  width: 44px; height: 44px;
   object-fit: contain;
   opacity: 0.95;
   margin-right: 10px;
@@ -1018,12 +1018,12 @@ a:hover { opacity: 0.8; }
 }
 .system-chip-icon {
   display: flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px;
+  width: 52px; height: 52px;
   opacity: 0.55;
   transition: opacity 0.15s;
 }
 .system-chip:hover .system-chip-icon { opacity: 0.9; }
-.system-chip-icon svg { width: 36px; height: 36px; fill: currentColor; }
+.system-chip-icon svg { width: 48px; height: 48px; fill: currentColor; }
 .system-chip-label {
   font-size: var(--text-sm);
   font-weight: 600;
