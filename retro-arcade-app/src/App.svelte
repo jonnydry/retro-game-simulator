@@ -430,9 +430,12 @@
   </main>
   {:else}
   <div class="loading-splash">
-    <img src="/logo-icon.png" alt="" class="loading-splash-logo" />
-    <div class="loading-splash-text">LOADING<span class="loading-dots">...</span></div>
-    <div class="loading-splash-bar"><div class="loading-splash-bar-fill"></div></div>
+    <div class="loading-splash-content">
+      <img src="/logo.png" alt="EmuPhoria" class="loading-splash-logo-full" />
+      <div class="loading-splash-text">Loading retro paradise<span class="loading-dots">...</span></div>
+      <div class="loading-splash-bar"><div class="loading-splash-bar-fill"></div></div>
+    </div>
+    <div class="loading-splash-grid"></div>
   </div>
   {/if}
 </div>

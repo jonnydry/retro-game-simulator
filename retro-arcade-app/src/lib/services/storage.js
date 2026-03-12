@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   resolution: 'auto',
   uiScale: 1.25,
   theme: DEFAULT_THEME,
-  sidebarCollapsed: false,
+  sidebarCollapsed: true,
   watchFoldersEnabled: false
 });
 
