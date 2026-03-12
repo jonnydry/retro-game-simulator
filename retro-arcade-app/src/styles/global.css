@@ -479,7 +479,7 @@ a:hover { opacity: 0.8; }
 /* Logo wrapper - positions caret inline with text block */
 .logo-wrapper {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 4px;
 }
 
