@@ -60,6 +60,9 @@
   let storageReady = false;
   let showSplash = true;
   let splashExiting = false;
+  let bootPhase = 0;
+  let progress = 0;
+  let skipRequested = false;
   let romAccept = '';
   let activeSystemFilter = '';
   $: romAccept = [...new Set(Object.values(getEnabledSystemExtensions($enabledSystems)).flat())].join(',');
@@ -71,6 +74,19 @@
   function clearPendingRomLoad(action = null) {
     pendingRomLoadId.set(null);
     clearPendingRomLoadAction(action);
+  }
+
+  function skipSplash() {
+    if (skipRequested) return;
+    skipRequested = true;
+    bootPhase = 3;
+    progress = 100;
+    setTimeout(() => {
+      splashExiting = true;
+      setTimeout(() => {
+        showSplash = false;
+      }, 400);
+    }, 200);
   }
 
   async function handleReturnToLibrary() {
@@ -247,10 +263,28 @@
   }
 
   async function runBootSequence() {
-    // Boot sequence: show splash for 900ms, then fade out over 400ms
-    await new Promise(resolve => setTimeout(resolve, 900));
-    splashExiting = true;
+    // Phase 0: Initial display (0-300ms)
+    await new Promise(resolve => setTimeout(resolve, 300));
+    bootPhase = 1;
+    
+    // Phase 1: Progress filling (300-1800ms)
+    const progressInterval = setInterval(() => {
+      progress = Math.min(100, progress + 1.5);
+    }, 20);
+    
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    clearInterval(progressInterval);
+    progress = 100;
+    bootPhase = 2;
+    
+    // Phase 2: Complete, show READY
     await new Promise(resolve => setTimeout(resolve, 400));
+    bootPhase = 3;
+    
+    // Phase 3: Exit transition
+    await new Promise(resolve => setTimeout(resolve, 200));
+    splashExiting = true;
+    await new Promise(resolve => setTimeout(resolve, 500));
     showSplash = false;
   }
 
@@ -451,27 +485,84 @@
   <div class="loading-splash" class:exiting={splashExiting}>
     <div class="loading-splash-scanlines"></div>
     <div class="loading-splash-vignette"></div>
+    <div class="loading-splash-noise"></div>
+    
+    <!-- Particle effects -->
+    <div class="particles-container">
+      {#each Array(12) as _, i}
+        <div class="particle" style="
+          --delay: {Math.random() * 2}s; 
+          --duration: {2 + Math.random() * 2}s; 
+          --x: {Math.random() * 100}%; 
+          --y: {Math.random() * 100}%;
+          --size: {4 + Math.random() * 6}px;
+        "></div>
+      {/each}
+    </div>
+    
     <div class="loading-splash-content">
       <div class="loading-splash-logo-container">
+        <div class="logo-glow-ring"></div>
         <img src="/logo.png" alt="EmuPhoria" class="loading-splash-logo-full" />
         <div class="loading-splash-glitch"></div>
       </div>
+      
       <div class="loading-splash-terminal">
-        <div class="terminal-line">
-          <span class="terminal-prompt">$</span>
-          <span class="terminal-text" class:typing-complete={!splashExiting}>boot_sequence --retro</span>
-          <span class="terminal-cursor" class:blink={!splashExiting}>_</span>
+        <div class="terminal-header">
+          <span class="terminal-dot red"></span>
+          <span class="terminal-dot yellow"></span>
+          <span class="terminal-dot green"></span>
+          <span class="terminal-title">emu_boot_sequence</span>
         </div>
-        <div class="terminal-status">
-          {#if splashExiting}
-            <span class="status-ok">[READY]</span>
-          {:else}
-            <span class="status-loading">loading...</span>
+        <div class="terminal-body">
+          <div class="terminal-line">
+            <span class="terminal-prompt">➜</span>
+            <span class="terminal-command" class:visible={bootPhase >= 0}>init_system</span>
+          </div>
+          <div class="terminal-line">
+            <span class="terminal-prompt">➜</span>
+            <span class="terminal-command" class:visible={bootPhase >= 1}>load_cores</span>
+            <span class="terminal-args" class:visible={bootPhase >= 1}>--retro --fast</span>
+          </div>
+          {#if bootPhase >= 1}
+            <div class="terminal-line indent">
+              <span class="terminal-output">loading emulators...</span>
+            </div>
+          {/if}
+          {#if bootPhase >= 2}
+            <div class="terminal-line indent">
+              <span class="terminal-output success">✓ ready</span>
+            </div>
           {/if}
         </div>
+        
+        <!-- Progress bar -->
+        <div class="terminal-progress">
+          <div class="progress-label">
+            <span>{Math.round(progress)}%</span>
+            <span class="status-text" class:ready={bootPhase >= 2}>
+              {bootPhase >= 2 ? 'COMPLETE' : 'INITIALIZING'}
+            </span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" style="width: {progress}%"></div>
+            <div class="progress-glow" style="left: {progress}%"></div>
+          </div>
+        </div>
       </div>
+      
+      <button class="skip-button" on:click={skipSplash} class:visible={bootPhase >= 1}>
+        press any key to skip
+      </button>
     </div>
+    
     <div class="loading-splash-grid"></div>
+    
+    <!-- Decorative corner elements -->
+    <div class="corner corner-tl">◤</div>
+    <div class="corner corner-tr">◥</div>
+    <div class="corner corner-bl">◣</div>
+    <div class="corner corner-br">◢</div>
   </div>
   {/if}
 </div>
