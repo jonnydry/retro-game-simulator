@@ -58,6 +58,8 @@
   let romFileInput = null;
   let pendingRomPick = { system: '', mode: 'import' };
   let storageReady = false;
+  let showSplash = true;
+  let splashExiting = false;
   let romAccept = '';
   let activeSystemFilter = '';
   $: romAccept = [...new Set(Object.values(getEnabledSystemExtensions($enabledSystems)).flat())].join(',');
@@ -244,6 +246,14 @@
     return autoSaveInFlight;
   }
 
+  async function runBootSequence() {
+    // Boot sequence: show splash for 900ms, then fade out over 400ms
+    await new Promise(resolve => setTimeout(resolve, 900));
+    splashExiting = true;
+    await new Promise(resolve => setTimeout(resolve, 400));
+    showSplash = false;
+  }
+
   onMount(async () => {
     visibilityChangeHandler = () => {
       if (document.visibilityState === 'hidden') {
@@ -256,10 +266,10 @@
     document.addEventListener('visibilitychange', visibilityChangeHandler);
     window.addEventListener('pagehide', pageHideHandler);
 
-    // Minimum splash screen display time (1.5 seconds)
-    const minSplashTime = new Promise(resolve => setTimeout(resolve, 1500));
+    // Start boot sequence and storage init in parallel
+    const bootPromise = runBootSequence();
     
-    await Promise.all([initRomStorage(), minSplashTime]);
+    await initRomStorage();
     romLibrary.refresh();
     storageReady = true;
     const settings = getSettings();
@@ -270,6 +280,10 @@
         if (dreamcastAvailable) setDreamcastEnabled(true);
       });
     }
+    
+    // Wait for boot sequence to complete
+    await bootPromise;
+    
     const pendingRomId = getPendingRomId();
     const pendingResumeFromSave = getPendingResumeFromSave();
     if (pendingRomId) {
@@ -375,7 +389,7 @@
 
 <div class="app-container dither-bg" class:banner-visible={$desktopBannerVisible} style="zoom: {$uiScale}; --ui-zoom: {$uiScale}">
   <DesktopBanner />
-  {#if storageReady}
+  {#if storageReady && !showSplash}
   <Sidebar
     onLoadGame={handleLoadGame}
     onLoadRom={handleLoadRom}
@@ -431,12 +445,31 @@
       <PlayView showView={showView} />
     {/if}
   </main>
-  {:else}
-  <div class="loading-splash">
+  {/if}
+  
+  {#if showSplash}
+  <div class="loading-splash" class:exiting={splashExiting}>
+    <div class="loading-splash-scanlines"></div>
+    <div class="loading-splash-vignette"></div>
     <div class="loading-splash-content">
-      <img src="/logo.png" alt="EmuPhoria" class="loading-splash-logo-full" />
-      <div class="loading-splash-text">Loading retro paradise<span class="loading-dots">...</span></div>
-      <div class="loading-splash-bar"><div class="loading-splash-bar-fill"></div></div>
+      <div class="loading-splash-logo-container">
+        <img src="/logo.png" alt="EmuPhoria" class="loading-splash-logo-full" />
+        <div class="loading-splash-glitch"></div>
+      </div>
+      <div class="loading-splash-terminal">
+        <div class="terminal-line">
+          <span class="terminal-prompt">$</span>
+          <span class="terminal-text" class:typing-complete={!splashExiting}>boot_sequence --retro</span>
+          <span class="terminal-cursor" class:blink={!splashExiting}>_</span>
+        </div>
+        <div class="terminal-status">
+          {#if splashExiting}
+            <span class="status-ok">[READY]</span>
+          {:else}
+            <span class="status-loading">loading...</span>
+          {/if}
+        </div>
+      </div>
     </div>
     <div class="loading-splash-grid"></div>
   </div>

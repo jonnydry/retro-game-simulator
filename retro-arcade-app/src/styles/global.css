@@ -313,7 +313,7 @@ a:hover { opacity: 0.8; }
   mix-blend-mode: multiply;
 }
 
-/* ---------- Loading splash ---------- */
+/* ---------- Loading splash - Retro Boot Sequence ---------- */
 .loading-splash {
   display: flex;
   flex-direction: column;
@@ -323,93 +323,218 @@ a:hover { opacity: 0.8; }
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: linear-gradient(135deg, #0a0a0f 0%, #111118 50%, #0a0a0f 100%);
+  background: 
+    radial-gradient(ellipse at 50% 0%, rgba(0, 255, 163, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(123, 92, 255, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #0a0a0f 0%, #0d0d12 50%, #0a0a0f 100%);
   overflow: hidden;
+  animation: splashEnter 0.3s ease-out;
+}
+.loading-splash.exiting {
+  animation: splashExit 0.4s ease-in forwards;
+}
+@keyframes splashEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes splashExit {
+  from { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  to { 
+    opacity: 0;
+    transform: scale(1.05);
+    filter: blur(10px);
+  }
+}
+.loading-splash-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.6;
+}
+.loading-splash-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+  z-index: 1;
 }
 .loading-splash-grid {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0, 255, 163, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 163, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
-  animation: gridMove 20s linear infinite;
+    linear-gradient(rgba(0, 255, 163, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 163, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridMove 15s linear infinite;
   pointer-events: none;
+  transform: perspective(500px) rotateX(60deg) translateY(0);
+  transform-origin: center top;
+  opacity: 0.5;
 }
 @keyframes gridMove {
   0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
-  100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+  100% { transform: perspective(500px) rotateX(60deg) translateY(60px); }
 }
 .loading-splash-content {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-xl);
-  padding: var(--space-2xl);
+  gap: var(--space-lg);
+  padding: var(--space-xl);
   position: relative;
-  z-index: 1;
-  animation: splashFadeIn 0.6s ease-out;
+  z-index: 3;
+  animation: contentEnter 0.5s ease-out 0.1s both;
 }
-@keyframes splashFadeIn {
+@keyframes contentEnter {
   from {
     opacity: 0;
-    transform: scale(0.9) translateY(20px);
+    transform: translateY(30px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
+.loading-splash-logo-container {
+  position: relative;
+  animation: logoFloat 3s ease-in-out infinite;
+}
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
 .loading-splash-logo-full {
-  max-width: min(400px, 70vw);
-  max-height: min(400px, 50vh);
+  max-width: min(320px, 60vw);
+  max-height: min(320px, 40vh);
   width: auto;
   height: auto;
   object-fit: contain;
-  animation: logoPulse 2s ease-in-out infinite;
-  filter: drop-shadow(0 0 40px rgba(0, 255, 163, 0.2));
+  filter: drop-shadow(0 0 30px rgba(0, 255, 163, 0.3)) drop-shadow(0 0 60px rgba(123, 92, 255, 0.2));
+  animation: logoGlow 2s ease-in-out infinite;
 }
-@keyframes logoPulse {
+@keyframes logoGlow {
   0%, 100% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 40px rgba(0, 255, 163, 0.2));
+    filter: drop-shadow(0 0 30px rgba(0, 255, 163, 0.3)) drop-shadow(0 0 60px rgba(123, 92, 255, 0.2));
   }
   50% {
-    transform: scale(1.02);
-    filter: drop-shadow(0 0 60px rgba(0, 255, 163, 0.4));
+    filter: drop-shadow(0 0 40px rgba(0, 255, 163, 0.5)) drop-shadow(0 0 80px rgba(123, 92, 255, 0.3));
   }
 }
-.loading-splash-text {
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
-  font-weight: 500;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+.loading-splash-glitch {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 48%, rgba(0, 255, 163, 0.1) 49%, rgba(255, 51, 102, 0.1) 51%, transparent 52%);
+  background-size: 200% 100%;
+  animation: glitch 4s ease-in-out infinite;
+  pointer-events: none;
+  opacity: 0;
+}
+@keyframes glitch {
+  0%, 90%, 100% { opacity: 0; background-position: 0% 0; }
+  91% { opacity: 0.5; background-position: 100% 0; }
+  92% { opacity: 0; background-position: 0% 0; }
+  93% { opacity: 0.5; background-position: 100% 0; }
+  94% { opacity: 0; }
+}
+.loading-splash-terminal {
+  font-family: 'VT323', 'IBM Plex Mono', monospace;
+  font-size: 18px;
+  color: var(--accent-primary);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 163, 0.2);
+  border-radius: 8px;
+  padding: var(--space-md) var(--space-lg);
+  min-width: 280px;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.terminal-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.terminal-prompt {
+  color: var(--accent-secondary);
+  font-weight: bold;
+}
+.terminal-text {
+  color: var(--text-primary);
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid transparent;
+  animation: typing 0.6s steps(24) 0.3s both;
+}
+.terminal-text.typing-complete {
+  border-right: 2px solid var(--accent-primary);
+}
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+.terminal-cursor {
+  color: var(--accent-primary);
+  animation: cursorBlink 0.8s step-end infinite;
+}
+.terminal-cursor.blink {
+  animation: cursorBlink 0.8s step-end infinite;
+}
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.terminal-status {
+  margin-top: var(--space-sm);
+  text-align: right;
+  font-size: 14px;
+}
+.status-loading {
   color: var(--text-secondary);
-  animation: textGlow 2s ease-in-out infinite;
+  animation: pulse 1s ease-in-out infinite;
 }
-@keyframes textGlow {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+.status-ok {
+  color: var(--accent-primary);
+  animation: statusOk 0.3s ease-out;
 }
-.loading-dots { animation: pixelBlink 1s step-end infinite; }
+@keyframes statusOk {
+  from { 
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 .loading-splash-bar {
-  width: 200px; height: 3px;
-  background: var(--border-subtle);
-  border-radius: 3px; overflow: hidden;
+  width: 100%; 
+  height: 2px;
+  background: rgba(0, 255, 163, 0.1);
+  border-radius: 1px; 
+  overflow: hidden;
   margin-top: var(--space-sm);
 }
 .loading-splash-bar-fill {
-  height: 100%; width: 30%;
+  height: 100%; 
+  width: 0%;
   background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-  border-radius: 3px;
-  animation: loadingBarPulse 1.2s ease-in-out infinite;
+  border-radius: 1px;
+  animation: loadingProgress 0.9s ease-out forwards;
 }
-.loading-splash-logo {
-  width: 72px; height: 72px;
-  object-fit: contain;
-  opacity: 0.9;
+@keyframes loadingProgress {
+  0% { width: 0%; }
+  100% { width: 100%; }
 }
 
 /* ---------- Desktop banner (mobile only) ---------- */
