@@ -497,8 +497,8 @@ a:hover { opacity: 0.8; }
 }
 .loading-splash-logo-full {
   display: block;
-  max-width: min(200px, 50vw);
-  max-height: min(200px, 30vh);
+  max-width: min(400px, 70vw);
+  max-height: min(400px, 45vh);
   width: auto;
   height: auto;
   filter: drop-shadow(0 0 40px rgba(0, 255, 163, 0.4)) 
