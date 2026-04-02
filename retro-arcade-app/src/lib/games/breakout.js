@@ -234,9 +234,7 @@ export function updateBreakout(state, ctx, canvas, getKeys, playSound, timestamp
       const hitPos = (ball.x - b.paddleX) / b.paddleWidth;
       ball.vx = (hitPos - 0.5) * 10;
       
-      // Speed up slightly with each hit
-      b.speed = Math.min(10, b.speed + 0.05);
-      b.combo = 0; // Reset combo on paddle hit
+      b.combo = 0;
       playSound('hit');
     }
 
@@ -546,7 +544,7 @@ function render(ctx, canvas, b) {
   Object.keys(b.activePowerUps).forEach(key => {
     const pu = b.activePowerUps[key];
     if (pu.expires) {
-      const remaining = Math.max(0, (pu.expires - Date.now()) / 1000);
+      const remaining = Math.max(0, (pu.expires - timestamp) / 1000);
       const pType = POWER_UP_TYPES.find(p => p.type === key);
       if (pType && remaining > 0) {
         ctx.fillStyle = pType.color;

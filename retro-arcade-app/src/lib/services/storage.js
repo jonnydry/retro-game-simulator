@@ -23,13 +23,27 @@ function cloneSaveStateMeta(nextSaveStates) {
   return cloned;
 }
 
-let saveStateMetaCache = cloneSaveStateMeta(getSavedData().saveStates);
+let saveStateMetaCache = null;
 
-export const saveStateMetaByRom = writable(saveStateMetaCache);
+function getSaveStateMetaCache() {
+  if (saveStateMetaCache === null) {
+    saveStateMetaCache = cloneSaveStateMeta(getSavedData().saveStates);
+  }
+  return saveStateMetaCache;
+}
+
+export const saveStateMetaByRom = writable({});
 
 function syncSaveStateMetaCache(nextSaveStates) {
   saveStateMetaCache = cloneSaveStateMeta(nextSaveStates);
   saveStateMetaByRom.set(saveStateMetaCache);
+}
+
+function ensureCacheInitialized() {
+  const cache = getSaveStateMetaCache();
+  if (Object.keys(saveStateMetaByRom).length === 0 && Object.keys(cache).length > 0) {
+    saveStateMetaByRom.set(cache);
+  }
 }
 
 export function getSavedData() {
@@ -91,7 +105,8 @@ export function saveSettings(settings) {
  * Tracks when user saved state for each ROM/slot so we can show indicators.
  */
 export function getSaveStateMeta(romId) {
-  return saveStateMetaCache[romId] || null;
+  ensureCacheInitialized();
+  return getSaveStateMetaCache()[romId] || null;
 }
 
 export function setSaveStateMeta(romId, slot, savedAt = Date.now()) {
@@ -99,7 +114,8 @@ export function setSaveStateMeta(romId, slot, savedAt = Date.now()) {
   if (!data.saveStates) data.saveStates = {};
   if (!data.saveStates[romId]) data.saveStates[romId] = {};
   data.saveStates[romId][slot] = savedAt;
-  return saveData(data);
+  const result = saveData(data);
+  return result;
 }
 
 export function clearSaveStateMeta(romId, slot) {

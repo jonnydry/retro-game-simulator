@@ -65,9 +65,16 @@ export function updatePong(state, ctx, canvas, getKeys, playSound) {
     targetY = p.ballY + p.ballVY * timeToReach;
     
     // Bounce prediction off walls
-    while (targetY < 0 || targetY > canvas.height) {
-      if (targetY < 0) targetY = -targetY;
-      if (targetY > canvas.height) targetY = 2 * canvas.height - targetY;
+    let iterations = 0;
+    while ((targetY < 0 || targetY > canvas.height) && iterations < 100) {
+      if (targetY < 0) {
+        targetY = -targetY;
+      } else if (targetY > canvas.height) {
+        targetY = 2 * canvas.height - targetY;
+      } else {
+        break;
+      }
+      iterations++;
     }
   }
   

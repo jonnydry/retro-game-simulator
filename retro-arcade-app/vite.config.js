@@ -12,7 +12,7 @@ const securityHeaders = {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [svelte()],
   resolve: {
     alias: {
@@ -24,5 +24,9 @@ export default defineConfig({
   },
   preview: {
     headers: securityHeaders
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
+    __BUILD_HASH__: JSON.stringify(process.env.VITE_BUILD_HASH || 'dev')
   }
-})
+}))

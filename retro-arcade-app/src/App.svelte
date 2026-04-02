@@ -12,6 +12,7 @@
   import SettingsModal from '$lib/components/SettingsModal.svelte';
   import ThemeTintSwitcher from '$lib/components/ThemeTintSwitcher.svelte';
   import DesktopBanner from '$lib/components/DesktopBanner.svelte';
+  import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
   import { desktopBannerVisible } from '$lib/stores/desktopBannerStore.js';
   import {
     getEnabledSystemExtensions,
@@ -496,13 +497,17 @@
       </div>
     {/if}
     {#if $currentView === 'emulator'}
-      <EmulatorView
-        onLoadRom={handleLoadRom}
-        onOpenRomDialog={handleOpenRomDialog}
-        systemFilter={activeSystemFilter}
-      />
+      <ErrorBoundary>
+        <EmulatorView
+          onLoadRom={handleLoadRom}
+          onOpenRomDialog={handleOpenRomDialog}
+          systemFilter={activeSystemFilter}
+        />
+      </ErrorBoundary>
     {:else if $currentView === 'play'}
-      <PlayView showView={showView} />
+      <ErrorBoundary>
+        <PlayView showView={showView} />
+      </ErrorBoundary>
     {/if}
   </main>
   {/if}
@@ -544,8 +549,8 @@
     <!-- Version badge with build info -->
     <div class="version-badge" class:visible={bootPhase >= 0}>
       <span class="version-label">EMU</span>
-      <span class="version-number">v2.0.4</span>
-      <span class="version-build">BUILD 8921</span>
+      <span class="version-number">v{__APP_VERSION__}</span>
+      <span class="version-build">BUILD {__BUILD_HASH__}</span>
     </div>
     
     <!-- Easter egg: Hidden konami code hint -->

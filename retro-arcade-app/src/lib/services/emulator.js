@@ -663,8 +663,9 @@ async function loadEmulator(containerId, romUrl, gameName, system, callbacks, op
   }
 
   if (isDreamcastSystem(system) && dreamcastDataPath) {
-    const biosFile = import.meta.env.VITE_DREAMCAST_BIOS || 'dc_boot.bin';
-    window.EJS_biosUrl = dreamcastDataPath + 'bios/dc/' + encodeURIComponent(biosFile);
+    const rawBiosFile = import.meta.env.VITE_DREAMCAST_BIOS || 'dc_boot.bin';
+    const safeBiosFile = rawBiosFile.replace(/[^a-zA-Z0-9._-]/g, '');
+    window.EJS_biosUrl = dreamcastDataPath + 'bios/dc/' + encodeURIComponent(safeBiosFile);
   }
 
   if (loadStateUrl) currentLoadStateBlobUrl = loadStateUrl;
@@ -746,7 +747,8 @@ export async function loadRomFromFile(file, system, mode, callbacks) {
 
   stopEmulator();
 
-  let romId = null;
+  const romId = await addToRomLibrary(romName, system, file);
+  romLibrary.refresh();
   const romUrl = URL.createObjectURL(file);
 
   const containerId = 'emulator-' + Date.now();
