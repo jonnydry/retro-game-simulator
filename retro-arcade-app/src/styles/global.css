@@ -496,11 +496,7 @@ a:hover { opacity: 0.8; }
   }
 }
 .loading-splash-logo-full {
-  max-width: min(280px, 55vw);
-  max-height: min(280px, 35vh);
-  width: auto;
-  height: auto;
-  object-fit: contain;
+  display: block;
   filter: drop-shadow(0 0 40px rgba(0, 255, 163, 0.4)) 
           drop-shadow(0 0 80px rgba(123, 92, 255, 0.3))
           drop-shadow(0 0 120px rgba(0, 255, 163, 0.1));
@@ -3111,21 +3107,27 @@ canvas#gameCanvas {
 .touch-controls * { pointer-events: auto; }
 
 .touch-btn {
-  width: 52px; height: 52px;
+  width: 60px; height: 60px;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(6, 6, 8, 0.75);
+  background: rgba(6, 6, 8, 0.8);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
-  transition: background 0.1s;
+  transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
-.touch-btn:active { background: var(--bg-active); }
+.touch-btn:active {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  transform: scale(0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
 .touch-btn-action {
   background: rgba(var(--accent-secondary-rgb), 0.15);
   border-color: var(--border-accent);
@@ -3134,24 +3136,52 @@ canvas#gameCanvas {
   letter-spacing: 0.06em;
 }
 
-.touch-controls-pong { display: flex; flex-direction: column; gap: var(--space-sm); }
-.touch-controls-snake { display: flex; align-items: center; gap: var(--space-xl); }
+.touch-controls-pong { display: flex; flex-direction: column; gap: var(--space-md); }
+.touch-controls-snake { display: flex; align-items: center; gap: var(--space-2xl); }
 .touch-dpad { display: grid; }
 .touch-dpad-cross {
-  grid-template-columns: 52px 52px 52px;
-  grid-template-rows: 52px 52px 52px;
-  gap: 4px;
+  grid-template-columns: 60px 60px 60px;
+  grid-template-rows: 60px 60px 60px;
+  gap: 6px;
 }
 .touch-dpad-up    { grid-column: 2; grid-row: 1; }
 .touch-dpad-left  { grid-column: 1; grid-row: 2; }
 .touch-dpad-right { grid-column: 3; grid-row: 2; }
 .touch-dpad-down  { grid-column: 2; grid-row: 3; }
 .touch-dpad-horizontal {
-  grid-template-columns: 52px 52px;
-  grid-template-rows: 52px;
-  gap: var(--space-sm);
+  grid-template-columns: 60px 60px;
+  grid-template-rows: 60px;
+  gap: var(--space-md);
 }
 .touch-controls-breakout { display: flex; align-items: center; gap: var(--space-xl); }
+
+/* Mobile Quick Settings FAB */
+.mobile-settings-fab {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0));
+  right: var(--space-md);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(6, 6, 8, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  cursor: pointer;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s, background 0.2s;
+}
+.mobile-settings-fab:hover {
+  transform: scale(1.05);
+  background: rgba(15, 15, 20, 0.9);
+}
+@media (max-width: 768px) {
+  .mobile-settings-fab { display: flex; }
+}
 
 /* =============================================================
    RESPONSIVE — MOBILE
@@ -3223,9 +3253,19 @@ canvas#gameCanvas {
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
-  .game-frame { max-height: 80vh; }
-  .touch-controls { bottom: 4px; }
-  .touch-btn { width: 44px; height: 44px; font-size: 16px; }
+  .game-frame { max-height: 85vh; }
+  .touch-controls { bottom: 8px; }
+  .touch-btn { width: 48px; height: 48px; font-size: 18px; }
+  .touch-dpad-cross {
+    grid-template-columns: 48px 48px 48px;
+    grid-template-rows: 48px 48px 48px;
+  }
+  .mobile-settings-fab {
+    bottom: calc(60px + env(safe-area-inset-bottom, 0));
+    right: var(--space-sm);
+    width: 40px;
+    height: 40px;
+  }
 }
 
 /* =============================================================
