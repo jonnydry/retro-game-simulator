@@ -114,28 +114,16 @@
         emulatorEl.style.height = size.height + 'px';
         emulatorEl.style.maxWidth = size.width + 'px';
         emulatorEl.style.maxHeight = size.height + 'px';
-        crtFrameEl.style.maxWidth = size.width + 'px';
-        crtFrameEl.style.maxHeight = size.height + 'px';
       } else if (emulatorEl) {
         emulatorEl.style.width = '100%';
         emulatorEl.style.height = '100%';
         emulatorEl.style.maxWidth = '100%';
         emulatorEl.style.maxHeight = '100%';
-        crtFrameEl.style.maxWidth = '100%';
-        crtFrameEl.style.maxHeight = '100%';
       }
     } else {
-      const size = getResolutionSize('builtin');
       if (canvasEl) {
         canvasEl.width = 640;
         canvasEl.height = 480;
-      }
-      if (size) {
-        crtFrameEl.style.maxWidth = size.width + 'px';
-        crtFrameEl.style.maxHeight = size.height + 'px';
-      } else {
-        crtFrameEl.style.maxWidth = '100%';
-        crtFrameEl.style.maxHeight = '100%';
       }
     }
   }
