@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { DEFAULT_THEME } from './theme.js';
 
 const STORAGE_KEY = 'retroArcade_data';
@@ -41,9 +41,15 @@ function syncSaveStateMetaCache(nextSaveStates) {
 
 function ensureCacheInitialized() {
   const cache = getSaveStateMetaCache();
-  if (Object.keys(saveStateMetaByRom).length === 0 && Object.keys(cache).length > 0) {
+  const storeValue = get(saveStateMetaByRom);
+  if (Object.keys(storeValue).length === 0 && Object.keys(cache).length > 0) {
     saveStateMetaByRom.set(cache);
   }
+}
+
+/** Sync reactive save-state metadata from localStorage (e.g. on boot for sidebar badges). */
+export function hydrateSaveStateMetaStore() {
+  ensureCacheInitialized();
 }
 
 export function getSavedData() {

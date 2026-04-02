@@ -33,7 +33,7 @@
   } from '$lib/services/appController.js';
   import { stopGameAudio } from '$lib/services/audio.js';
   import { showConfirm } from '$lib/services/dialog.js';
-  import { getSettings, getRomFromLibrary, getSaveStateMeta } from '$lib/services/storage.js';
+  import { getSettings, getRomFromLibrary, getSaveStateMeta, hydrateSaveStateMetaStore } from '$lib/services/storage.js';
   import { initRomStorage } from '$lib/services/romStorage.js';
   import { applyTheme } from '$lib/services/theme.js';
   import { romLibrary } from '$lib/stores/romLibraryStore.js';
@@ -333,6 +333,7 @@
     const bootPromise = runBootSequence();
     
     await initRomStorage();
+    hydrateSaveStateMetaStore();
     romLibrary.refresh();
     storageReady = true;
     const settings = getSettings();
