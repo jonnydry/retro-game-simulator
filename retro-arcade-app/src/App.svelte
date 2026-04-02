@@ -565,7 +565,7 @@
         <div class="logo-glow-ring"></div>
         <div class="logo-glow-ring ring-2"></div>
         <div class="logo-glow-ring ring-3"></div>
-        <img src="/logo.png" alt="EmuPhoria" class="loading-splash-logo-full" />
+        <img src="https://emuphoria.com/logo-icon.png" alt="EmuPhoria" class="loading-splash-logo-full" />
         <div class="loading-splash-glitch"></div>
         {#if bootPhase >= 4}
           <div class="ready-indicator">
