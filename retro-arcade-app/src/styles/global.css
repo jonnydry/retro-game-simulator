@@ -324,10 +324,10 @@ a:hover { opacity: 0.8; }
   inset: 0;
   z-index: 10000;
   background: 
-    radial-gradient(ellipse at 20% 20%, rgba(0, 255, 163, 0.06) 0%, transparent 40%),
-    radial-gradient(ellipse at 80% 80%, rgba(123, 92, 255, 0.06) 0%, transparent 40%),
-    radial-gradient(ellipse at 50% 50%, rgba(255, 51, 102, 0.03) 0%, transparent 60%),
-    linear-gradient(180deg, #08080c 0%, #0a0a0f 50%, #08080c 100%);
+    radial-gradient(ellipse at 20% 20%, rgba(0, 255, 163, 0.04) 0%, transparent 40%),
+    radial-gradient(ellipse at 80% 80%, rgba(123, 92, 255, 0.04) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(255, 51, 102, 0.02) 0%, transparent 60%),
+    linear-gradient(180deg, #030305 0%, #050508 50%, #030305 100%);
   overflow: hidden;
   animation: splashEnter 0.4s ease-out;
 }
@@ -497,6 +497,10 @@ a:hover { opacity: 0.8; }
 }
 .loading-splash-logo-full {
   display: block;
+  max-width: min(200px, 50vw);
+  max-height: min(200px, 30vh);
+  width: auto;
+  height: auto;
   filter: drop-shadow(0 0 40px rgba(0, 255, 163, 0.4)) 
           drop-shadow(0 0 80px rgba(123, 92, 255, 0.3))
           drop-shadow(0 0 120px rgba(0, 255, 163, 0.1));
