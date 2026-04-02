@@ -49,9 +49,11 @@
 
   function openDrawer() {
     sidebarDrawerOpen.set(true);
+    document.body.style.overflow = 'hidden';
   }
   function closeDrawer() {
     sidebarDrawerOpen.set(false);
+    document.body.style.overflow = '';
   }
 
   let showRomDialog = false;
